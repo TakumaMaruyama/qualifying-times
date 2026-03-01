@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 import { SearchForm } from "@/components/search-form";
 
 export default function HomePage() {
@@ -8,6 +10,12 @@ export default function HomePage() {
         性別・生年月日・競技会日・短水路/長水路から、全国レベル/九州レベル/県レベルの標準記録を検索します。
       </p>
       <SearchForm />
+      <Link
+        href="/admin/import"
+        className="fixed bottom-4 right-4 text-xs text-zinc-400 transition-colors hover:text-zinc-600"
+      >
+        管理者ログイン
+      </Link>
     </main>
   );
 }

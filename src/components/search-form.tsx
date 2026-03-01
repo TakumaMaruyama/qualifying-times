@@ -16,6 +16,16 @@ type FormValues = {
 
 type FormErrors = Partial<Record<keyof FormValues, string>>;
 
+const GENDER_LABELS: Record<FormValues["gender"], string> = {
+  M: "男子",
+  F: "女子",
+};
+
+const COURSE_LABELS: Record<FormValues["course"], string> = {
+  SCM: "短水路 (25m)",
+  LCM: "長水路 (50m)",
+};
+
 function getLocalToday(): string {
   const now = new Date();
   const year = now.getFullYear();
@@ -102,7 +112,7 @@ export function SearchForm() {
         >
           {GENDERS.map((gender) => (
             <option key={gender} value={gender}>
-              {gender}
+              {GENDER_LABELS[gender]}
             </option>
           ))}
         </select>
@@ -141,7 +151,7 @@ export function SearchForm() {
         >
           {COURSES.map((course) => (
             <option key={course} value={course}>
-              {course}
+              {COURSE_LABELS[course]}
             </option>
           ))}
         </select>

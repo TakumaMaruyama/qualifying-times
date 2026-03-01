@@ -58,6 +58,11 @@ const LEVEL_LABELS: Record<StandardLevel, string> = {
   kagoshima: "県レベル",
 };
 
+const COURSE_LABELS: Record<Course, string> = {
+  SCM: "短水路 (25m)",
+  LCM: "長水路 (50m)",
+};
+
 const STATUS_LABELS = {
   add: "追加",
   update: "更新",
@@ -320,7 +325,7 @@ export function AdminImportClient() {
             >
               {COURSES.map((value) => (
                 <option key={value} value={value}>
-                  {value}
+                  {COURSE_LABELS[value]}
                 </option>
               ))}
             </select>
