@@ -1,0 +1,134 @@
+# 標準記録検索アプリ
+
+Next.js (App Router) + TypeScript + Tailwind + Drizzle + PostgreSQL で作成した、
+全国レベル / 九州レベル / 県レベルの標準記録検索アプリです。
+
+## 技術スタック
+
+- Next.js 16 (App Router)
+- TypeScript
+- Tailwind CSS
+- PostgreSQL
+- Drizzle ORM + drizzle-kit
+- zod
+
+## 必要な環境変数
+
+`.env` を作成して以下を設定してください。
+
+```env
+DATABASE_URL=postgresql://USER:PASSWORD@HOST:5432/DBNAME
+ADMIN_PASSWORD=your_admin_password
+```
+
+## セットアップ
+
+```bash
+npm install
+npm run db:generate
+npm run db:migrate
+npm run dev
+```
+
+## 主要ページ
+
+- `/` 検索フォーム
+- `/result` 検索結果表示
+- `/admin/import` 管理画面（JSONプレビュー/登録）
+
+## API
+
+- `POST /api/search`
+- `POST /api/admin/login`
+- `GET /api/admin/session`
+- `POST /api/admin/preview`
+- `POST /api/admin/import`
+
+### 管理APIリクエスト（preview/import）
+
+```json
+{
+  "level": "national",
+  "season": 2026,
+  "course": "SCM",
+  "meetName": "2026 県春季記録会",
+  "meetMetadata": { "category": "県予選" },
+  "jsonText": "{ ... }"
+}
+```
+
+### 検索APIレスポンス（抜粋）
+
+```json
+{
+  "age": 12,
+  "season": 2026,
+  "course": "SCM",
+  "gender": "M",
+  "results": {
+    "national": [
+      {
+        "meet_id": "uuid",
+        "meet_name": "全国大会A",
+        "meet_metadata": { "category": "本戦" },
+        "items": [{ "event_code": "FR_50", "time": "00:29.80" }]
+      }
+    ],
+    "kyushu": [],
+    "kagoshima": []
+  }
+}
+```
+
+## 管理画面の入力JSON形式
+
+```json
+{
+  "source": {
+    "title": "string",
+    "url": "string | null",
+    "pages": [1, 2, 3]
+  },
+  "rows": [
+    {
+      "gender": "M",
+      "age_min": 11,
+      "age_max": 12,
+      "event_code": "FR_50",
+      "time": "29.80"
+    }
+  ]
+}
+```
+
+- `event_code` は `/^(FR|BK|BR|FL|IM)_\d{2,4}$/`
+- `time` は `59.87`, `1:02.34`, `00:29.80`, `10:12.34` を許容
+- 壊れた行はエラーとして除外
+
+## DB構成（概要）
+
+- `meets`:
+  - `level, season, course, name` で一意
+  - `metadata_json` に任意情報を保存
+- `standards`:
+  - `meet_id` に紐づく大会単位データ
+  - 一意キーは `(meet_id, gender, age_min, age_max, event_code)`
+
+## サンプルJSON
+
+```json
+{
+  "source": {"title":"sample","url":null,"pages":null},
+  "rows":[
+    {"gender":"M","age_min":11,"age_max":12,"event_code":"FR_50","time":"29.80"},
+    {"gender":"M","age_min":11,"age_max":12,"event_code":"FR_100","time":"1:05.20"},
+    {"gender":"F","age_min":13,"age_max":14,"event_code":"IM_200","time":"2:28.50"}
+  ]
+}
+```
+
+## Replit Deploy
+
+1. Replit Secrets に `DATABASE_URL` と `ADMIN_PASSWORD` を設定
+2. `npm run db:migrate` を実行
+3. Deploy 設定の Start command を `npm run start` にしてデプロイ

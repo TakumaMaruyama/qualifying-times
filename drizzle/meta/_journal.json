@@ -1,0 +1,27 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1772373832263,
+      "tag": "0000_shocking_king_cobra",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1772383793405,
+      "tag": "0001_meet_hierarchy",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1772384146335,
+      "tag": "0002_snapshot_sync",
+      "breakpoints": true
+    }
+  ]
+}

@@ -1,0 +1,2 @@
+-- Snapshot sync migration intentionally left empty.
+-- Actual schema/data migration is in 0001_meet_hierarchy.sql.

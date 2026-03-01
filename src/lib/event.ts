@@ -1,0 +1,51 @@
+import { EVENT_CODE_REGEX } from "@/lib/domain";
+
+type ParsedEventCode = {
+  stroke: "FR" | "BK" | "BR" | "FL" | "IM";
+  distance: number;
+};
+
+const STROKE_ORDER: Record<ParsedEventCode["stroke"], number> = {
+  FR: 0,
+  BK: 1,
+  BR: 2,
+  FL: 3,
+  IM: 4,
+};
+
+export function parseEventCode(eventCode: string): ParsedEventCode | null {
+  if (!EVENT_CODE_REGEX.test(eventCode)) {
+    return null;
+  }
+
+  const [stroke, distanceText] = eventCode.split("_");
+  const distance = Number.parseInt(distanceText, 10);
+
+  if (!Number.isFinite(distance)) {
+    return null;
+  }
+
+  return {
+    stroke: stroke as ParsedEventCode["stroke"],
+    distance,
+  };
+}
+
+export function compareEventCode(a: string, b: string): number {
+  const parsedA = parseEventCode(a);
+  const parsedB = parseEventCode(b);
+
+  if (parsedA && parsedB) {
+    const strokeComparison = STROKE_ORDER[parsedA.stroke] - STROKE_ORDER[parsedB.stroke];
+    if (strokeComparison !== 0) {
+      return strokeComparison;
+    }
+
+    const distanceComparison = parsedA.distance - parsedB.distance;
+    if (distanceComparison !== 0) {
+      return distanceComparison;
+    }
+  }
+
+  return a.localeCompare(b);
+}
