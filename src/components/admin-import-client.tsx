@@ -4,6 +4,9 @@ import { useEffect, useMemo, useState } from "react";
 
 import { COURSES, STANDARD_LEVELS, type Course, type StandardLevel } from "@/lib/domain";
 
+const ADMIN_TOKEN_STORAGE_KEY = "admin_auth_token";
+const ADMIN_TOKEN_HEADER = "x-admin-token";
+
 type PreviewResponse = {
   meet: {
     id: string | null;
@@ -78,6 +81,24 @@ const SAMPLE_JSON = `{
   ]
 }`;
 
+function readAdminTokenFromStorage(): string | null {
+  if (typeof window === "undefined") {
+    return null;
+  }
+  return sessionStorage.getItem(ADMIN_TOKEN_STORAGE_KEY);
+}
+
+function writeAdminTokenToStorage(token: string | null): void {
+  if (typeof window === "undefined") {
+    return;
+  }
+  if (token) {
+    sessionStorage.setItem(ADMIN_TOKEN_STORAGE_KEY, token);
+    return;
+  }
+  sessionStorage.removeItem(ADMIN_TOKEN_STORAGE_KEY);
+}
+
 function parseMetadataText(text: string): {
   value: Record<string, unknown> | null;
   error: string | null;
@@ -108,6 +129,7 @@ function parseMetadataText(text: string): {
 export function AdminImportClient() {
   const [sessionReady, setSessionReady] = useState(false);
   const [authenticated, setAuthenticated] = useState(false);
+  const [adminToken, setAdminToken] = useState<string | null>(null);
 
   const [password, setPassword] = useState("");
   const [loginError, setLoginError] = useState<string | null>(null);
@@ -127,8 +149,19 @@ export function AdminImportClient() {
 
   useEffect(() => {
     const loadSession = async () => {
+      const storedToken = readAdminTokenFromStorage();
+      setAdminToken(storedToken);
+
       try {
-        const response = await fetch("/api/admin/session");
+        const headers: HeadersInit = {};
+        if (storedToken) {
+          headers[ADMIN_TOKEN_HEADER] = storedToken;
+        }
+
+        const response = await fetch("/api/admin/session", {
+          headers,
+          cache: "no-store",
+        });
         const body = (await response.json()) as { authenticated?: boolean };
         setAuthenticated(Boolean(body.authenticated));
       } catch {
@@ -172,11 +205,14 @@ export function AdminImportClient() {
         body: JSON.stringify({ password }),
       });
 
-      const body = (await response.json()) as { error?: string };
+      const body = (await response.json()) as { error?: string; token?: string };
       if (!response.ok) {
         throw new Error(body.error ?? "ログインに失敗しました。");
       }
 
+      const token = body.token ?? null;
+      setAdminToken(token);
+      writeAdminTokenToStorage(token);
       setAuthenticated(true);
       setPassword("");
     } catch (error) {
@@ -212,11 +248,16 @@ export function AdminImportClient() {
     setRequestLoading(true);
 
     try {
+      const headers: HeadersInit = {
+        "Content-Type": "application/json",
+      };
+      if (adminToken) {
+        headers[ADMIN_TOKEN_HEADER] = adminToken;
+      }
+
       const response = await fetch(`/api/admin/${action}`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers,
         body: JSON.stringify({
           level,
           season: Number.parseInt(season, 10),
@@ -234,6 +275,8 @@ export function AdminImportClient() {
 
       if (response.status === 401) {
         setAuthenticated(false);
+        setAdminToken(null);
+        writeAdminTokenToStorage(null);
         throw new Error("認証が切れました。再ログインしてください。");
       }
 

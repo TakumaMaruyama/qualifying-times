@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { NextResponse } from "next/server";
+import { type NextRequest, NextResponse } from "next/server";
 
 import {
   ADMIN_COOKIE_NAME,
@@ -11,7 +11,7 @@ const loginSchema = z.object({
   password: z.string().min(1, "password is required."),
 });
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     const parsed = loginSchema.safeParse(body);
@@ -25,13 +25,19 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Password is incorrect." }, { status: 401 });
     }
 
-    const response = NextResponse.json({ ok: true });
+    const token = buildAdminCookieValue();
+    const forwardedProto = request.headers.get("x-forwarded-proto");
+    const secure = forwardedProto
+      ? forwardedProto.toLowerCase().includes("https")
+      : request.nextUrl.protocol === "https:";
+
+    const response = NextResponse.json({ ok: true, token });
     response.cookies.set({
       name: ADMIN_COOKIE_NAME,
-      value: buildAdminCookieValue(),
+      value: token,
       httpOnly: true,
       sameSite: "lax",
-      secure: process.env.NODE_ENV === "production",
+      secure,
       path: "/",
       maxAge: 60 * 60 * 24,
     });
