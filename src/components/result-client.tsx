@@ -43,6 +43,10 @@ const COURSE_LABELS: Record<Course, string> = {
   ANY: "どちらでも良い",
 };
 
+function formatCourseStandardRecordLabel(course: Course): string {
+  return `${COURSE_LABELS[course]}の標準記録`;
+}
+
 function isCourse(value: string | null): value is Course {
   return value !== null && COURSES.includes(value as Course);
 }
@@ -175,7 +179,7 @@ export function ResultClient() {
               <span className="font-medium">性別:</span> {data.gender}
             </p>
             <p>
-              <span className="font-medium">標準記録のプール長:</span> {COURSE_LABELS[data.course]}
+              <span className="font-medium">検索対象:</span> {formatCourseStandardRecordLabel(data.course)}
             </p>
           </div>
 
@@ -193,11 +197,11 @@ export function ResultClient() {
                         <details key={meet.meet_id} className="rounded border border-zinc-200">
                           <summary className="cursor-pointer list-none p-3">
                             <div className="flex flex-wrap items-center justify-between gap-2">
-                              <h3 className="text-base font-semibold">{meet.meet_name}</h3>
-                              <span className="rounded-full border border-zinc-300 bg-zinc-100 px-2 py-0.5 text-xs text-zinc-700">
-                                標準記録のプール長: {COURSE_LABELS[meet.meet_course]}
-                              </span>
-                            </div>
+                            <h3 className="text-base font-semibold">{meet.meet_name}</h3>
+                            <span className="rounded-full border border-zinc-300 bg-zinc-100 px-2 py-0.5 text-xs text-zinc-700">
+                              {formatCourseStandardRecordLabel(meet.meet_course)}
+                            </span>
+                          </div>
                             <p className="mt-1 text-xs text-zinc-600">
                               大会日付: {meet.meet_date ?? "未設定"} / 種目数: {meet.items.length}
                             </p>

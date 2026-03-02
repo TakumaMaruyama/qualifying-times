@@ -82,6 +82,10 @@ const COURSE_LABELS: Record<Course, string> = {
   ANY: "どちらでも良い",
 };
 
+function formatCourseStandardRecordLabel(course: Course): string {
+  return `${COURSE_LABELS[course]}の標準記録`;
+}
+
 const GENDER_LABELS: Record<Gender, string> = {
   M: "男子",
   F: "女子",
@@ -503,7 +507,7 @@ export function AdminRecordsEditor({
                   }`}
                 >
                   <p className="font-semibold">{meet.name}</p>
-                  <p>標準記録のプール長: {COURSE_LABELS[meet.course]}</p>
+                  <p>{formatCourseStandardRecordLabel(meet.course)}</p>
                   <p>日付: {meet.meet_date ?? "未設定"}</p>
                   <p>件数: {meet.row_count}</p>
                 </button>

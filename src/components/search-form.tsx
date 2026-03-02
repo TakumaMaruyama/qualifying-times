@@ -29,6 +29,10 @@ const COURSE_LABELS: Record<FormValues["course"], string> = {
   ANY: "どちらでも良い",
 };
 
+function formatCourseStandardRecordLabel(course: FormValues["course"]): string {
+  return `${COURSE_LABELS[course]}の標準記録`;
+}
+
 function validate(values: FormValues): FormErrors {
   const errors: FormErrors = {};
 
@@ -239,7 +243,7 @@ export function SearchForm() {
               >
                 <p className="text-sm font-medium">
                   選手名: {item.playerName === "" ? "未入力" : item.playerName} / {GENDER_LABELS[item.gender]} /{" "}
-                  {item.birthDate} / 標準記録のプール長: {COURSE_LABELS[item.course]} / 年度:{" "}
+                  {item.birthDate} / {formatCourseStandardRecordLabel(item.course)} / 年度:{" "}
                   {item.season === "" ? "最新年度" : item.season}
                 </p>
                 <p className="mt-1 text-xs text-zinc-600">
