@@ -17,6 +17,7 @@ import { formatEventCodeLabel } from "@/lib/event";
 type SearchMeetResult = {
   meet_id: string;
   meet_name: string;
+  meet_course: Course;
   meet_metadata: Record<string, unknown> | null;
   items: Array<{ event_code: string; time: string }>;
 };
@@ -173,7 +174,7 @@ export function ResultClient() {
               <span className="font-medium">性別:</span> {data.gender}
             </p>
             <p>
-              <span className="font-medium">プール:</span> {COURSE_LABELS[data.course]}
+              <span className="font-medium">プール長:</span> {COURSE_LABELS[data.course]}
             </p>
           </div>
 
@@ -189,7 +190,12 @@ export function ResultClient() {
                     <div className="space-y-5">
                       {meets.map((meet) => (
                         <div key={meet.meet_id} className="rounded border border-zinc-200 p-3">
-                          <h3 className="text-base font-semibold">{meet.meet_name}</h3>
+                          <div className="flex flex-wrap items-center justify-between gap-2">
+                            <h3 className="text-base font-semibold">{meet.meet_name}</h3>
+                            <span className="rounded-full border border-zinc-300 bg-zinc-100 px-2 py-0.5 text-xs text-zinc-700">
+                              プール長: {COURSE_LABELS[meet.meet_course]}
+                            </span>
+                          </div>
                           {meet.meet_metadata ? (
                             <p className="mb-3 mt-1 break-all text-xs text-zinc-600">
                               metadata: {JSON.stringify(meet.meet_metadata)}

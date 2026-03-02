@@ -32,6 +32,10 @@ const COURSE_LABELS: Record<FormValues["course"], string> = {
 function validate(values: FormValues): FormErrors {
   const errors: FormErrors = {};
 
+  if (values.playerName.trim().length > 50) {
+    errors.playerName = "選手名は50文字以内で入力してください。";
+  }
+
   if (!values.birthDate) {
     errors.birthDate = "生年月日を入力してください。";
   } else if (!parseIsoDateOnly(values.birthDate)) {
@@ -86,9 +90,10 @@ export function SearchForm() {
       return loaded;
     }
     return {
+      playerName: "",
       gender: "M",
       birthDate: "",
-      course: "SCM",
+      course: "ANY",
       season: "",
     };
   });
@@ -114,6 +119,7 @@ export function SearchForm() {
 
   const onHistoryClick = (item: SearchHistoryItem) => {
     const input: FormValues = {
+      playerName: item.playerName,
       gender: item.gender,
       birthDate: item.birthDate,
       course: item.course,
@@ -142,6 +148,19 @@ export function SearchForm() {
   return (
     <form onSubmit={onSubmit} className="space-y-4 rounded-lg border border-zinc-200 bg-white p-6">
       <div>
+        <label className="mb-1 block text-sm font-medium">選手名（任意）</label>
+        <input
+          type="text"
+          value={values.playerName}
+          onChange={(event) => setField("playerName", event.target.value)}
+          className="w-full rounded border border-zinc-300 px-3 py-2"
+          placeholder="例: 山田 太郎"
+          maxLength={50}
+        />
+        {errors.playerName ? <p className="mt-1 text-sm text-red-600">{errors.playerName}</p> : null}
+      </div>
+
+      <div>
         <label className="mb-1 block text-sm font-medium">性別</label>
         <select
           value={values.gender}
@@ -169,7 +188,7 @@ export function SearchForm() {
       </div>
 
       <div>
-        <label className="mb-1 block text-sm font-medium">プール</label>
+        <label className="mb-1 block text-sm font-medium">プール長</label>
         <select
           value={values.course}
           onChange={(event) => setField("course", event.target.value as FormValues["course"])}
@@ -213,13 +232,14 @@ export function SearchForm() {
           <div className="space-y-2">
             {history.map((item, index) => (
               <button
-                key={`${item.gender}-${item.birthDate}-${item.course}-${item.season}-${item.searchedAt}-${index}`}
+                key={`${item.playerName}-${item.gender}-${item.birthDate}-${item.course}-${item.season}-${item.searchedAt}-${index}`}
                 type="button"
                 onClick={() => onHistoryClick(item)}
                 className="w-full rounded border border-zinc-200 bg-zinc-50 px-3 py-2 text-left hover:bg-zinc-100"
               >
                 <p className="text-sm font-medium">
-                  {GENDER_LABELS[item.gender]} / {item.birthDate} / {COURSE_LABELS[item.course]} / 年度:{" "}
+                  選手名: {item.playerName === "" ? "未入力" : item.playerName} / {GENDER_LABELS[item.gender]} /{" "}
+                  {item.birthDate} / プール長: {COURSE_LABELS[item.course]} / 年度:{" "}
                   {item.season === "" ? "最新年度" : item.season}
                 </p>
                 <p className="mt-1 text-xs text-zinc-600">

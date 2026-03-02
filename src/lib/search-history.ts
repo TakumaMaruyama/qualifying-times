@@ -6,6 +6,7 @@ export const SEARCH_HISTORY_STORAGE_KEY = "search_history_v1";
 export const SEARCH_HISTORY_LIMIT = 10;
 
 export type StoredSearchInput = {
+  playerName: string;
   gender: Gender;
   birthDate: string;
   course: Course;
@@ -32,20 +33,36 @@ function isValidSeasonString(value: unknown): value is string {
   if (typeof value !== "string") {
     return false;
   }
-  if (value === "") {
+  const trimmed = value.trim();
+  if (trimmed === "") {
     return true;
   }
 
-  const seasonNumber = Number.parseInt(value, 10);
-  return /^\d{4}$/.test(value) && seasonNumber >= 1900 && seasonNumber <= 3000;
+  const seasonNumber = Number.parseInt(trimmed, 10);
+  return /^\d{4}$/.test(trimmed) && seasonNumber >= 1900 && seasonNumber <= 3000;
 }
 
 function isValidIsoDateString(value: unknown): value is string {
-  return typeof value === "string" && parseIsoDateOnly(value) !== null;
+  return typeof value === "string" && parseIsoDateOnly(value.trim()) !== null;
+}
+
+function normalizePlayerName(value: unknown): string | null {
+  if (value === undefined) {
+    return "";
+  }
+  if (typeof value !== "string") {
+    return null;
+  }
+  return value.trim().slice(0, 50);
 }
 
 function normalizeStoredSearchInput(input: unknown): StoredSearchInput | null {
   if (!isObject(input)) {
+    return null;
+  }
+
+  const playerName = normalizePlayerName(input.playerName);
+  if (playerName === null) {
     return null;
   }
 
@@ -63,10 +80,11 @@ function normalizeStoredSearchInput(input: unknown): StoredSearchInput | null {
   }
 
   return {
+    playerName,
     gender: input.gender,
-    birthDate: input.birthDate,
+    birthDate: input.birthDate.trim(),
     course: input.course,
-    season: input.season,
+    season: input.season.trim(),
   };
 }
 
@@ -100,7 +118,7 @@ function normalizeHistoryItem(input: unknown): SearchHistoryItem | null {
 }
 
 function makeHistoryKey(input: StoredSearchInput): string {
-  return `${input.gender}|${input.birthDate}|${input.course}|${input.season}`;
+  return `${input.gender}|${input.birthDate}|${input.course}|${input.season}|${input.playerName}`;
 }
 
 function readStorageValue(key: string): string | null {
@@ -142,7 +160,11 @@ export function readLastSearchInput(): StoredSearchInput | null {
 }
 
 export function writeLastSearchInput(input: StoredSearchInput): void {
-  writeStorageValue(SEARCH_LAST_INPUT_STORAGE_KEY, JSON.stringify(input));
+  const normalized = normalizeStoredSearchInput(input);
+  if (!normalized) {
+    return;
+  }
+  writeStorageValue(SEARCH_LAST_INPUT_STORAGE_KEY, JSON.stringify(normalized));
 }
 
 export function readSearchHistory(): SearchHistoryItem[] {
@@ -192,12 +214,17 @@ function writeSearchHistory(items: SearchHistoryItem[]): void {
 }
 
 export function upsertSearchHistory(input: StoredSearchInput): SearchHistoryItem[] {
+  const normalized = normalizeStoredSearchInput(input);
+  if (!normalized) {
+    return readSearchHistory();
+  }
+
   const nextItem: SearchHistoryItem = {
-    ...input,
+    ...normalized,
     searchedAt: new Date().toISOString(),
   };
 
-  const key = makeHistoryKey(input);
+  const key = makeHistoryKey(normalized);
   const nextHistory = [nextItem, ...readSearchHistory().filter((item) => makeHistoryKey(item) !== key)].slice(
     0,
     SEARCH_HISTORY_LIMIT,

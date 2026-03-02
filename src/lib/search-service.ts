@@ -38,6 +38,7 @@ export type SearchRow = {
 export type SearchMeetResult = {
   meet_id: string;
   meet_name: string;
+  meet_course: Course;
   meet_metadata: Record<string, unknown> | null;
   items: SearchRow[];
 };
@@ -127,6 +128,7 @@ export async function searchStandards(input: SearchRequest): Promise<SearchRespo
       level: meets.level,
       meetId: meets.id,
       meetName: meets.name,
+      meetCourse: meets.course,
       meetMetadata: meets.metadataJson,
       eventCode: standards.eventCode,
       timeMs: standards.timeMs,
@@ -161,6 +163,7 @@ export async function searchStandards(input: SearchRequest): Promise<SearchRespo
       meetGroup = {
         meet_id: row.meetId,
         meet_name: row.meetName,
+        meet_course: row.meetCourse,
         meet_metadata: (row.meetMetadata ?? null) as Record<string, unknown> | null,
         items: [],
       };
