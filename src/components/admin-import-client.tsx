@@ -73,15 +73,6 @@ const STATUS_LABELS = {
   skip: "スキップ",
 } as const;
 
-const SAMPLE_JSON = `{
-  "source": {"title":"sample","url":null,"pages":null},
-  "rows":[
-    {"gender":"M","age_min":11,"age_max":12,"event_code":"FR_50","time":"29.80"},
-    {"gender":"M","age_min":11,"age_max":12,"event_code":"FR_100","time":"1:05.20"},
-    {"gender":"F","age_min":13,"age_max":14,"event_code":"IM_200","time":"2:28.50"}
-  ]
-}`;
-
 function readAdminTokenFromStorage(): string | null {
   if (typeof window === "undefined") {
     return null;
@@ -138,7 +129,7 @@ function readAdminImportDraft(): AdminImportFormDraft | null {
       course: parsed.course,
       meetName: typeof parsed.meetName === "string" ? parsed.meetName : "サンプル大会",
       meetMetadataText: typeof parsed.meetMetadataText === "string" ? parsed.meetMetadataText : "",
-      jsonText: typeof parsed.jsonText === "string" ? parsed.jsonText : SAMPLE_JSON,
+      jsonText: typeof parsed.jsonText === "string" ? parsed.jsonText : "",
     };
   } catch {
     return null;
@@ -193,7 +184,7 @@ export function AdminImportClient() {
   const [course, setCourse] = useState<Course>("SCM");
   const [meetName, setMeetName] = useState("サンプル大会");
   const [meetMetadataText, setMeetMetadataText] = useState("");
-  const [jsonText, setJsonText] = useState(SAMPLE_JSON);
+  const [jsonText, setJsonText] = useState("");
 
   const [requestLoading, setRequestLoading] = useState(false);
   const [preview, setPreview] = useState<PreviewResponse | null>(null);
