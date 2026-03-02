@@ -190,43 +190,47 @@ export function ResultClient() {
                   ) : (
                     <div className="space-y-5">
                       {meets.map((meet) => (
-                        <div key={meet.meet_id} className="rounded border border-zinc-200 p-3">
-                          <div className="flex flex-wrap items-center justify-between gap-2">
-                            <h3 className="text-base font-semibold">{meet.meet_name}</h3>
-                            <span className="rounded-full border border-zinc-300 bg-zinc-100 px-2 py-0.5 text-xs text-zinc-700">
-                              標準記録のプール長: {COURSE_LABELS[meet.meet_course]}
-                            </span>
-                          </div>
-                          <p className="mb-2 mt-1 text-xs text-zinc-600">
-                            大会日付: {meet.meet_date ?? "未設定"}
-                          </p>
-                          {meet.meet_metadata ? (
-                            <p className="mb-3 mt-1 break-all text-xs text-zinc-600">
-                              metadata: {JSON.stringify(meet.meet_metadata)}
+                        <details key={meet.meet_id} className="rounded border border-zinc-200">
+                          <summary className="cursor-pointer list-none p-3">
+                            <div className="flex flex-wrap items-center justify-between gap-2">
+                              <h3 className="text-base font-semibold">{meet.meet_name}</h3>
+                              <span className="rounded-full border border-zinc-300 bg-zinc-100 px-2 py-0.5 text-xs text-zinc-700">
+                                標準記録のプール長: {COURSE_LABELS[meet.meet_course]}
+                              </span>
+                            </div>
+                            <p className="mt-1 text-xs text-zinc-600">
+                              大会日付: {meet.meet_date ?? "未設定"} / 種目数: {meet.items.length}
                             </p>
-                          ) : null}
-                          <div className="overflow-x-auto">
-                            <table className="min-w-full text-sm">
-                              <thead>
-                                <tr className="border-b border-zinc-200 text-left">
-                                  <th className="py-2 pr-3">種目</th>
-                                  <th className="py-2">標準記録</th>
-                                </tr>
-                              </thead>
-                              <tbody>
-                                {meet.items.map((row, index) => (
-                                  <tr
-                                    key={`${meet.meet_id}-${row.event_code}-${index}`}
-                                    className="border-b border-zinc-100"
-                                  >
-                                    <td className="py-2 pr-3">{formatEventCodeLabel(row.event_code)}</td>
-                                    <td className="py-2">{row.time}</td>
+                          </summary>
+                          <div className="border-t border-zinc-200 p-3">
+                            {meet.meet_metadata ? (
+                              <p className="mb-3 mt-1 break-all text-xs text-zinc-600">
+                                metadata: {JSON.stringify(meet.meet_metadata)}
+                              </p>
+                            ) : null}
+                            <div className="overflow-x-auto">
+                              <table className="min-w-full text-sm">
+                                <thead>
+                                  <tr className="border-b border-zinc-200 text-left">
+                                    <th className="py-2 pr-3">種目</th>
+                                    <th className="py-2">標準記録</th>
                                   </tr>
-                                ))}
-                              </tbody>
-                            </table>
+                                </thead>
+                                <tbody>
+                                  {meet.items.map((row, index) => (
+                                    <tr
+                                      key={`${meet.meet_id}-${row.event_code}-${index}`}
+                                      className="border-b border-zinc-100"
+                                    >
+                                      <td className="py-2 pr-3">{formatEventCodeLabel(row.event_code)}</td>
+                                      <td className="py-2">{row.time}</td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
                           </div>
-                        </div>
+                        </details>
                       ))}
                     </div>
                   )}
