@@ -9,7 +9,6 @@ import { COURSES, GENDERS } from "@/lib/domain";
 type FormValues = {
   gender: "M" | "F";
   birthDate: string;
-  meetDate: string;
   course: "SCM" | "LCM";
   season: string;
 };
@@ -26,14 +25,6 @@ const COURSE_LABELS: Record<FormValues["course"], string> = {
   LCM: "長水路 (50m)",
 };
 
-function getLocalToday(): string {
-  const now = new Date();
-  const year = now.getFullYear();
-  const month = String(now.getMonth() + 1).padStart(2, "0");
-  const day = String(now.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
-}
-
 function validate(values: FormValues): FormErrors {
   const errors: FormErrors = {};
 
@@ -41,12 +32,6 @@ function validate(values: FormValues): FormErrors {
     errors.birthDate = "生年月日を入力してください。";
   } else if (!parseIsoDateOnly(values.birthDate)) {
     errors.birthDate = "YYYY-MM-DD 形式で正しい日付を入力してください。";
-  }
-
-  if (!values.meetDate) {
-    errors.meetDate = "競技会日を入力してください。";
-  } else if (!parseIsoDateOnly(values.meetDate)) {
-    errors.meetDate = "YYYY-MM-DD 形式で正しい日付を入力してください。";
   }
 
   if (values.season.trim() !== "") {
@@ -64,7 +49,6 @@ export function SearchForm() {
   const [values, setValues] = useState<FormValues>({
     gender: "M",
     birthDate: "",
-    meetDate: getLocalToday(),
     course: "SCM",
     season: "",
   });
@@ -90,7 +74,6 @@ export function SearchForm() {
     const query = new URLSearchParams({
       gender: values.gender,
       birthDate: values.birthDate,
-      meetDate: values.meetDate,
       course: values.course,
     });
 
@@ -131,18 +114,6 @@ export function SearchForm() {
       </div>
 
       <div>
-        <label className="mb-1 block text-sm font-medium">競技会日</label>
-        <input
-          type="date"
-          value={values.meetDate}
-          onChange={(event) => setField("meetDate", event.target.value)}
-          className="w-full rounded border border-zinc-300 px-3 py-2"
-          required
-        />
-        {errors.meetDate ? <p className="mt-1 text-sm text-red-600">{errors.meetDate}</p> : null}
-      </div>
-
-      <div>
         <label className="mb-1 block text-sm font-medium">プール</label>
         <select
           value={values.course}
@@ -163,9 +134,10 @@ export function SearchForm() {
           type="number"
           value={values.season}
           onChange={(event) => setField("season", event.target.value)}
-          placeholder="未入力なら競技会日の年"
+          placeholder="例: 2026"
           className="w-full rounded border border-zinc-300 px-3 py-2"
         />
+        <p className="mt-1 text-xs text-zinc-600">未入力の場合は今年度を検索します。</p>
         {errors.season ? <p className="mt-1 text-sm text-red-600">{errors.season}</p> : null}
       </div>
 

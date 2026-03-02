@@ -42,7 +42,6 @@ export function ResultClient() {
   const requestPayload = useMemo(() => {
     const gender = params.get("gender");
     const birthDate = params.get("birthDate");
-    const meetDate = params.get("meetDate");
     const course = params.get("course");
     const seasonRaw = params.get("season");
 
@@ -52,10 +51,6 @@ export function ResultClient() {
 
     if (!birthDate || !parseIsoDateOnly(birthDate)) {
       return { error: "birthDate が不正です。" };
-    }
-
-    if (!meetDate || !parseIsoDateOnly(meetDate)) {
-      return { error: "meetDate が不正です。" };
     }
 
     if (!isCourse(course)) {
@@ -75,7 +70,6 @@ export function ResultClient() {
       payload: {
         gender,
         birthDate,
-        meetDate,
         course,
         season,
       },

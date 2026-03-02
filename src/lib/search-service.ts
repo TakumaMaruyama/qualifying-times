@@ -3,7 +3,11 @@ import { z } from "zod";
 
 import { db } from "@/db/client";
 import { meets, standards } from "@/db/schema";
-import { calculateFullAge, parseIsoDateOnly } from "@/lib/date";
+import {
+  calculateFullAge,
+  getCurrentDatePartsInTimeZone,
+  parseIsoDateOnly,
+} from "@/lib/date";
 import {
   courseSchema,
   genderSchema,
@@ -20,7 +24,6 @@ import { formatTimeMs } from "@/lib/time";
 export const searchRequestSchema = z.object({
   gender: genderSchema,
   birthDate: z.string(),
-  meetDate: z.string(),
   course: courseSchema,
   season: z.number().int().min(1900).max(3000).nullable(),
 });
@@ -63,13 +66,9 @@ export async function searchStandards(input: SearchRequest): Promise<SearchRespo
     throw new BadRequestError("birthDate must be YYYY-MM-DD.");
   }
 
-  const meetDate = parseIsoDateOnly(input.meetDate);
-  if (!meetDate) {
-    throw new BadRequestError("meetDate must be YYYY-MM-DD.");
-  }
-
-  const age = calculateFullAge(birthDate, meetDate);
-  const season = resolveSeason(input.season, meetDate);
+  const currentDate = getCurrentDatePartsInTimeZone("Asia/Tokyo");
+  const age = calculateFullAge(birthDate, currentDate);
+  const season = resolveSeason(input.season, currentDate);
 
   const found = await db
     .select({

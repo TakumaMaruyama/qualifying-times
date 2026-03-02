@@ -82,3 +82,28 @@ export function toIsoDateString(parts: DateParts): string {
     .toString()
     .padStart(2, "0")}-${parts.day.toString().padStart(2, "0")}`;
 }
+
+export function getCurrentDatePartsInTimeZone(timeZone: string): DateParts {
+  const formatter = new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  });
+
+  const parts = formatter.formatToParts(new Date());
+
+  const yearPart = parts.find((part) => part.type === "year")?.value;
+  const monthPart = parts.find((part) => part.type === "month")?.value;
+  const dayPart = parts.find((part) => part.type === "day")?.value;
+
+  if (!yearPart || !monthPart || !dayPart) {
+    throw new Error(`Could not resolve current date in timezone: ${timeZone}`);
+  }
+
+  return {
+    year: Number.parseInt(yearPart, 10),
+    month: Number.parseInt(monthPart, 10),
+    day: Number.parseInt(dayPart, 10),
+  };
+}
