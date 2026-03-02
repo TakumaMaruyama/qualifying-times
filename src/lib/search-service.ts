@@ -60,6 +60,13 @@ export function validateSearchRequest(input: unknown): SearchRequest {
   return parsed.data;
 }
 
+function resolveSearchCourses(course: Course): Course[] {
+  if (course === "ANY") {
+    return ["SCM", "LCM", "ANY"];
+  }
+  return [course, "ANY"];
+}
+
 export async function searchStandards(input: SearchRequest): Promise<SearchResponse> {
   const birthDate = parseIsoDateOnly(input.birthDate);
   if (!birthDate) {
@@ -69,6 +76,7 @@ export async function searchStandards(input: SearchRequest): Promise<SearchRespo
   const currentDate = getCurrentDatePartsInTimeZone("Asia/Tokyo");
   const age = calculateFullAge(birthDate, currentDate);
   const season = resolveSeason(input.season, currentDate);
+  const courses = resolveSearchCourses(input.course);
 
   const found = await db
     .select({
@@ -84,7 +92,7 @@ export async function searchStandards(input: SearchRequest): Promise<SearchRespo
     .where(
       and(
         eq(meets.season, season),
-        eq(meets.course, input.course),
+        inArray(meets.course, courses),
         eq(standards.gender, input.gender),
         lte(standards.ageMin, age),
         gte(standards.ageMax, age),

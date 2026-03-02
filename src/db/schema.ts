@@ -16,7 +16,7 @@ export const standardLevelEnum = pgEnum("standard_level", [
   "kagoshima",
 ]);
 
-export const courseEnum = pgEnum("course", ["SCM", "LCM"]);
+export const courseEnum = pgEnum("course", ["SCM", "LCM", "ANY"]);
 
 export const genderEnum = pgEnum("gender", ["M", "F"]);
 

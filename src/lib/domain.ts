@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 export const STANDARD_LEVELS = ["national", "kyushu", "kagoshima"] as const;
-export const COURSES = ["SCM", "LCM"] as const;
+export const COURSES = ["SCM", "LCM", "ANY"] as const;
 export const GENDERS = ["M", "F"] as const;
 
 export const standardLevelSchema = z.enum(STANDARD_LEVELS);

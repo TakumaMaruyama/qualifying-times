@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 
+import { AdminRecordsEditor } from "@/components/admin-records-editor";
 import { COURSES, STANDARD_LEVELS, type Course, type StandardLevel } from "@/lib/domain";
 
 const ADMIN_TOKEN_STORAGE_KEY = "admin_auth_token";
@@ -65,6 +66,7 @@ const LEVEL_LABELS: Record<StandardLevel, string> = {
 const COURSE_LABELS: Record<Course, string> = {
   SCM: "短水路 (25m)",
   LCM: "長水路 (50m)",
+  ANY: "どちらでも良い",
 };
 
 const STATUS_LABELS = {
@@ -118,7 +120,7 @@ function readAdminImportDraft(): AdminImportFormDraft | null {
 
     if (
       (parsed.level !== "national" && parsed.level !== "kyushu" && parsed.level !== "kagoshima") ||
-      (parsed.course !== "SCM" && parsed.course !== "LCM")
+      (parsed.course !== "SCM" && parsed.course !== "LCM" && parsed.course !== "ANY")
     ) {
       return null;
     }
@@ -190,6 +192,13 @@ export function AdminImportClient() {
   const [preview, setPreview] = useState<PreviewResponse | null>(null);
   const [importResult, setImportResult] = useState<ImportResponse | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [recordsEditorReloadKey, setRecordsEditorReloadKey] = useState(0);
+
+  const handleUnauthorized = () => {
+    setAuthenticated(false);
+    setAdminToken(null);
+    writeAdminTokenToStorage(null);
+  };
 
   useEffect(() => {
     const loadSession = async () => {
@@ -347,9 +356,7 @@ export function AdminImportClient() {
         | { error?: string };
 
       if (response.status === 401) {
-        setAuthenticated(false);
-        setAdminToken(null);
-        writeAdminTokenToStorage(null);
+        handleUnauthorized();
         throw new Error("認証が切れました。再ログインしてください。");
       }
 
@@ -361,6 +368,7 @@ export function AdminImportClient() {
         setPreview(body as PreviewResponse);
       } else {
         setImportResult(body as ImportResponse);
+        setRecordsEditorReloadKey((current) => current + 1);
       }
     } catch (error) {
       setActionError(error instanceof Error ? error.message : "処理に失敗しました。");
@@ -504,7 +512,7 @@ export function AdminImportClient() {
           <h2 className="text-lg font-semibold">プレビュー結果</h2>
           <p className="text-sm">
             対象大会: {preview.meet.name}（{LEVEL_LABELS[preview.meet.level]} / {preview.meet.season} /
-            {preview.meet.course}）
+            {COURSE_LABELS[preview.meet.course]}）
           </p>
           <p className="text-sm">大会の状態: {preview.meet.exists ? "既存大会を更新" : "新規大会を作成"}</p>
           <p className="text-sm">
@@ -565,6 +573,15 @@ export function AdminImportClient() {
           </p>
         </section>
       ) : null}
+
+      <AdminRecordsEditor
+        key={recordsEditorReloadKey}
+        adminToken={adminToken}
+        defaultLevel={level}
+        defaultSeason={season}
+        defaultCourse={course}
+        onUnauthorized={handleUnauthorized}
+      />
     </div>
   );
 }

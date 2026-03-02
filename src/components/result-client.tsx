@@ -5,7 +5,13 @@ import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 
 import { parseIsoDateOnly } from "@/lib/date";
-import { COURSES, GENDERS, STANDARD_LEVELS, type StandardLevel } from "@/lib/domain";
+import {
+  COURSES,
+  GENDERS,
+  STANDARD_LEVELS,
+  type Course,
+  type StandardLevel,
+} from "@/lib/domain";
 
 type SearchMeetResult = {
   meet_id: string;
@@ -17,7 +23,7 @@ type SearchMeetResult = {
 type SearchApiResponse = {
   age: number;
   season: number;
-  course: "SCM" | "LCM";
+  course: Course;
   gender: "M" | "F";
   results: Record<StandardLevel, SearchMeetResult[]>;
 };
@@ -28,8 +34,14 @@ const LEVEL_LABELS: Record<StandardLevel, string> = {
   kagoshima: "県レベル",
 };
 
-function isCourse(value: string | null): value is "SCM" | "LCM" {
-  return value !== null && COURSES.includes(value as "SCM" | "LCM");
+const COURSE_LABELS: Record<Course, string> = {
+  SCM: "短水路 (25m)",
+  LCM: "長水路 (50m)",
+  ANY: "どちらでも良い",
+};
+
+function isCourse(value: string | null): value is Course {
+  return value !== null && COURSES.includes(value as Course);
 }
 
 function isGender(value: string | null): value is "M" | "F" {
@@ -160,7 +172,7 @@ export function ResultClient() {
               <span className="font-medium">性別:</span> {data.gender}
             </p>
             <p>
-              <span className="font-medium">プール:</span> {data.course}
+              <span className="font-medium">プール:</span> {COURSE_LABELS[data.course]}
             </p>
           </div>
 

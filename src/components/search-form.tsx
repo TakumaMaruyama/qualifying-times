@@ -4,12 +4,12 @@ import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { parseIsoDateOnly } from "@/lib/date";
-import { COURSES, GENDERS } from "@/lib/domain";
+import { COURSES, GENDERS, type Course } from "@/lib/domain";
 
 type FormValues = {
   gender: "M" | "F";
   birthDate: string;
-  course: "SCM" | "LCM";
+  course: Course;
   season: string;
 };
 
@@ -23,6 +23,7 @@ const GENDER_LABELS: Record<FormValues["gender"], string> = {
 const COURSE_LABELS: Record<FormValues["course"], string> = {
   SCM: "短水路 (25m)",
   LCM: "長水路 (50m)",
+  ANY: "どちらでも良い",
 };
 
 function validate(values: FormValues): FormErrors {

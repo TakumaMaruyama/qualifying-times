@@ -22,6 +22,13 @@
       "when": 1772384146335,
       "tag": "0002_snapshot_sync",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1772433012256,
+      "tag": "0003_add_course_any",
+      "breakpoints": true
     }
   ]
 }

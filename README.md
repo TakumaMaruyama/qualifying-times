@@ -34,7 +34,7 @@ npm run dev
 
 - `/` 検索フォーム
 - `/result` 検索結果表示
-- `/admin/import` 管理画面（JSONプレビュー/登録）
+- `/admin/import` 管理画面（JSONプレビュー/登録 + 取込済み記録の閲覧・編集）
 
 ## API
 
@@ -43,6 +43,11 @@ npm run dev
 - `GET /api/admin/session`
 - `POST /api/admin/preview`
 - `POST /api/admin/import`
+- `GET /api/admin/records`
+- `GET /api/admin/records/:meetId`
+- `POST /api/admin/records/:meetId`
+- `PATCH /api/admin/records/:meetId/:recordId`
+- `DELETE /api/admin/records/:meetId/:recordId`
 
 ### 管理APIリクエスト（preview/import）
 
@@ -56,6 +61,8 @@ npm run dev
   "jsonText": "{ ... }"
 }
 ```
+
+- `course` は `SCM` / `LCM` / `ANY`（どちらでも良い）
 
 ### 検索APIレスポンス（抜粋）
 
