@@ -6,6 +6,7 @@ import { COURSES, STANDARD_LEVELS, type Course, type StandardLevel } from "@/lib
 
 const ADMIN_TOKEN_STORAGE_KEY = "admin_auth_token";
 const ADMIN_TOKEN_HEADER = "x-admin-token";
+const ADMIN_IMPORT_FORM_STORAGE_KEY = "admin_import_form_v1";
 
 type PreviewResponse = {
   meet: {
@@ -99,6 +100,59 @@ function writeAdminTokenToStorage(token: string | null): void {
   sessionStorage.removeItem(ADMIN_TOKEN_STORAGE_KEY);
 }
 
+type AdminImportFormDraft = {
+  level: StandardLevel;
+  season: string;
+  course: Course;
+  meetName: string;
+  meetMetadataText: string;
+  jsonText: string;
+};
+
+function readAdminImportDraft(): AdminImportFormDraft | null {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  const raw = sessionStorage.getItem(ADMIN_IMPORT_FORM_STORAGE_KEY);
+  if (!raw) {
+    return null;
+  }
+
+  try {
+    const parsed = JSON.parse(raw) as Partial<AdminImportFormDraft>;
+    if (!parsed || typeof parsed !== "object") {
+      return null;
+    }
+
+    if (
+      (parsed.level !== "national" && parsed.level !== "kyushu" && parsed.level !== "kagoshima") ||
+      (parsed.course !== "SCM" && parsed.course !== "LCM")
+    ) {
+      return null;
+    }
+
+    return {
+      level: parsed.level,
+      season: typeof parsed.season === "string" ? parsed.season : String(new Date().getFullYear()),
+      course: parsed.course,
+      meetName: typeof parsed.meetName === "string" ? parsed.meetName : "サンプル大会",
+      meetMetadataText: typeof parsed.meetMetadataText === "string" ? parsed.meetMetadataText : "",
+      jsonText: typeof parsed.jsonText === "string" ? parsed.jsonText : SAMPLE_JSON,
+    };
+  } catch {
+    return null;
+  }
+}
+
+function writeAdminImportDraft(draft: AdminImportFormDraft): void {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  sessionStorage.setItem(ADMIN_IMPORT_FORM_STORAGE_KEY, JSON.stringify(draft));
+}
+
 function parseMetadataText(text: string): {
   value: Record<string, unknown> | null;
   error: string | null;
@@ -127,7 +181,6 @@ function parseMetadataText(text: string): {
 }
 
 export function AdminImportClient() {
-  const [sessionReady, setSessionReady] = useState(false);
   const [authenticated, setAuthenticated] = useState(false);
   const [adminToken, setAdminToken] = useState<string | null>(null);
 
@@ -152,6 +205,9 @@ export function AdminImportClient() {
       const storedToken = readAdminTokenFromStorage();
       setAdminToken(storedToken);
 
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 4000);
+
       try {
         const headers: HeadersInit = {};
         if (storedToken) {
@@ -161,18 +217,44 @@ export function AdminImportClient() {
         const response = await fetch("/api/admin/session", {
           headers,
           cache: "no-store",
+          signal: controller.signal,
         });
         const body = (await response.json()) as { authenticated?: boolean };
         setAuthenticated(Boolean(body.authenticated));
       } catch {
         setAuthenticated(false);
       } finally {
-        setSessionReady(true);
+        clearTimeout(timeoutId);
       }
     };
 
     loadSession();
   }, []);
+
+  useEffect(() => {
+    const draft = readAdminImportDraft();
+    if (!draft) {
+      return;
+    }
+
+    setLevel(draft.level);
+    setSeason(draft.season);
+    setCourse(draft.course);
+    setMeetName(draft.meetName);
+    setMeetMetadataText(draft.meetMetadataText);
+    setJsonText(draft.jsonText);
+  }, []);
+
+  useEffect(() => {
+    writeAdminImportDraft({
+      level,
+      season,
+      course,
+      meetName,
+      meetMetadataText,
+      jsonText,
+    });
+  }, [level, season, course, meetName, meetMetadataText, jsonText]);
 
   const seasonError = useMemo(() => {
     const seasonNumber = Number.parseInt(season, 10);
@@ -295,10 +377,6 @@ export function AdminImportClient() {
       setRequestLoading(false);
     }
   };
-
-  if (!sessionReady) {
-    return <p>読み込み中...</p>;
-  }
 
   if (!authenticated) {
     return (
