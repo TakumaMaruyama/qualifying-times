@@ -44,7 +44,13 @@ export async function GET(request: NextRequest) {
         .leftJoin(standards, eq(standards.meetId, meets.id))
         .where(whereClause)
         .groupBy(meets.id)
-        .orderBy(asc(meets.season), asc(meets.name), asc(meets.course));
+        .orderBy(
+          asc(meets.meetDate),
+          asc(meets.meetEndDate),
+          asc(meets.season),
+          asc(meets.name),
+          asc(meets.course),
+        );
 
       return NextResponse.json({
         meets: rows.map((row) => ({
@@ -86,7 +92,7 @@ export async function GET(request: NextRequest) {
         .leftJoin(standards, eq(standards.meetId, meets.id))
         .where(whereClause)
         .groupBy(meets.id)
-        .orderBy(asc(meets.season), asc(meets.name), asc(meets.course));
+        .orderBy(asc(meets.meetDate), asc(meets.season), asc(meets.name), asc(meets.course));
 
       return NextResponse.json({
         meets: rows.map((row) => ({

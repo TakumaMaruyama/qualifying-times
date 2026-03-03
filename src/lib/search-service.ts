@@ -57,6 +57,19 @@ export type SearchResponse = {
   results: Record<StandardLevel, SearchMeetResult[]>;
 };
 
+function compareNullableIsoDateAsc(a: string | null, b: string | null): number {
+  if (a === b) {
+    return 0;
+  }
+  if (a === null) {
+    return 1;
+  }
+  if (b === null) {
+    return -1;
+  }
+  return a.localeCompare(b);
+}
+
 export function validateSearchRequest(input: unknown): SearchRequest {
   const parsed = searchRequestSchema.safeParse(input);
   if (!parsed.success) {
@@ -213,10 +226,26 @@ export async function searchStandards(input: SearchRequest): Promise<SearchRespo
 
   for (const level of STANDARD_LEVELS) {
     results[level].sort((a, b) => {
-      if (a.meet_season !== b.meet_season) {
-        return b.meet_season - a.meet_season;
+      const meetDateComparison = compareNullableIsoDateAsc(a.meet_date, b.meet_date);
+      if (meetDateComparison !== 0) {
+        return meetDateComparison;
       }
-      return a.meet_name.localeCompare(b.meet_name);
+      const meetDateEndComparison = compareNullableIsoDateAsc(a.meet_date_end, b.meet_date_end);
+      if (meetDateEndComparison !== 0) {
+        return meetDateEndComparison;
+      }
+      if (a.meet_season !== b.meet_season) {
+        return a.meet_season - b.meet_season;
+      }
+      const nameComparison = a.meet_name.localeCompare(b.meet_name);
+      if (nameComparison !== 0) {
+        return nameComparison;
+      }
+      const courseComparison = a.meet_course.localeCompare(b.meet_course);
+      if (courseComparison !== 0) {
+        return courseComparison;
+      }
+      return a.meet_id.localeCompare(b.meet_id);
     });
     for (const meet of results[level]) {
       meet.items.sort((a, b) => {
