@@ -48,6 +48,12 @@ postcss-fix-tailwind-urls/  # Local PostCSS plugin for Tailwind v4 compatibility
 - `ADMIN_PASSWORD` — Admin panel authentication password
 - `REPLIT_DOMAINS` — Set by Replit, used for CORS allowedDevOrigins
 
+## Database Seeding
+- `drizzle/seed.sql` — 開発環境からエクスポートしたシードデータ（sources, meets, standards）
+- `scripts/seed.ts` — シードを実行するスクリプト（データが既にある場合はスキップ）
+- `npm run db:seed` — シードスクリプトの実行コマンド
+- デプロイ時のビルドコマンド: `npm run db:migrate && npm run db:seed && npm run build`
+
 ## Known Issues / Notes
 - Must use `--webpack` flag in dev (not Turbopack) because lightningcss native binaries can't load in Replit's Turbopack sandbox
 - The `postcss-fix-tailwind-urls` symlink in `node_modules` must be preserved across npm installs (or recreated)
