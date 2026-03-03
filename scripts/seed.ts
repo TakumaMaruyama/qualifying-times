@@ -12,16 +12,10 @@ async function main() {
   const pool = new Pool({ connectionString: databaseUrl });
 
   try {
-    const check = await pool.query("SELECT COUNT(*)::int AS count FROM meets");
-    if (check.rows[0].count > 0) {
-      console.log("Database already has data, skipping seed.");
-      return;
-    }
-
     const seedPath = join(__dirname, "..", "drizzle", "seed.sql");
     const sql = readFileSync(seedPath, "utf-8");
 
-    console.log("Seeding database...");
+    console.log("Applying seed.sql...");
     await pool.query(sql);
     console.log("Seed complete.");
   } catch (err) {
