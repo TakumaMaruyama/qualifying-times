@@ -1,4 +1,9 @@
-import { parseIsoDateOnly } from "@/lib/date";
+import { normalizeCompareAges, toCompareAgeBucket } from "@/lib/compare-age";
+import {
+  calculateFullAge,
+  getCurrentDatePartsInTimeZone,
+  parseIsoDateOnly,
+} from "@/lib/date";
 import { COURSES, GENDERS, type Course, type Gender } from "@/lib/domain";
 
 export const SEARCH_LAST_INPUT_STORAGE_KEY = "search_last_input_v1";
@@ -11,7 +16,7 @@ export type StoredSearchInput = {
   birthDate: string;
   course: Course;
   season: string;
-  compareOffsets: number[];
+  compareAges: number[];
 };
 
 export type SearchHistoryItem = StoredSearchInput & {
@@ -60,7 +65,7 @@ function normalizePlayerName(value: unknown): string | null {
   return value.trim().slice(0, 50);
 }
 
-function normalizeCompareOffsets(value: unknown): number[] | null {
+function normalizeCompareAgesField(value: unknown): number[] | null {
   if (value === undefined) {
     return [];
   }
@@ -68,12 +73,42 @@ function normalizeCompareOffsets(value: unknown): number[] | null {
     return null;
   }
 
-  const normalized = value
+  return normalizeCompareAges(value.map((item) => Number.parseInt(String(item), 10)));
+}
+
+function normalizeLegacyCompareOffsets(
+  value: unknown,
+  birthDate: string,
+): number[] | null {
+  if (value === undefined) {
+    return [];
+  }
+  if (!Array.isArray(value)) {
+    return null;
+  }
+
+  const offsets = value
     .map((item) => Number.parseInt(String(item), 10))
     .filter((item) => Number.isInteger(item) && item >= 1 && item <= 20);
 
-  const uniqueSorted = [...new Set(normalized)].sort((a, b) => a - b);
-  return uniqueSorted;
+  const birthParts = parseIsoDateOnly(birthDate);
+  if (!birthParts) {
+    return [];
+  }
+
+  try {
+    const currentDate = getCurrentDatePartsInTimeZone("Asia/Tokyo");
+    const currentAge = calculateFullAge(birthParts, currentDate);
+
+    return normalizeCompareAges(
+      offsets.map((offset) => {
+        const nextAge = currentAge + offset;
+        return toCompareAgeBucket(nextAge);
+      }),
+    );
+  } catch {
+    return [];
+  }
 }
 
 function normalizeStoredSearchInput(input: unknown): StoredSearchInput | null {
@@ -83,10 +118,6 @@ function normalizeStoredSearchInput(input: unknown): StoredSearchInput | null {
 
   const playerName = normalizePlayerName(input.playerName);
   if (playerName === null) {
-    return null;
-  }
-  const compareOffsets = normalizeCompareOffsets(input.compareOffsets);
-  if (compareOffsets === null) {
     return null;
   }
 
@@ -103,13 +134,22 @@ function normalizeStoredSearchInput(input: unknown): StoredSearchInput | null {
     return null;
   }
 
+  const birthDate = input.birthDate.trim();
+  const hasCompareAges = Object.prototype.hasOwnProperty.call(input, "compareAges");
+  const compareAges = hasCompareAges
+    ? normalizeCompareAgesField(input.compareAges)
+    : normalizeLegacyCompareOffsets(input.compareOffsets, birthDate);
+  if (compareAges === null) {
+    return null;
+  }
+
   return {
     playerName,
     gender: input.gender,
-    birthDate: input.birthDate.trim(),
+    birthDate,
     course: input.course,
     season: typeof input.season === "string" ? input.season.trim() : "",
-    compareOffsets,
+    compareAges,
   };
 }
 
@@ -143,7 +183,7 @@ function normalizeHistoryItem(input: unknown): SearchHistoryItem | null {
 }
 
 function makeHistoryKey(input: StoredSearchInput): string {
-  return `${input.gender}|${input.birthDate}|${input.course}|${input.season}|${input.playerName}|${input.compareOffsets.join(",")}`;
+  return `${input.gender}|${input.birthDate}|${input.course}|${input.season}|${input.playerName}|${input.compareAges.join(",")}`;
 }
 
 function readStorageValue(key: string): string | null {

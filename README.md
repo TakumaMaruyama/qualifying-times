@@ -63,7 +63,8 @@ npm run dev
 }
 ```
 
-- `course` は `SCM` / `LCM` / `ANY`（どちらでも良い）
+- `course` は `SCM` / `LCM` / `ANY`（短水路・長水路共通）
+- `ANY` は「短水路・長水路のどちらかの記録で標準記録を突破していれば可」を意味します。
 - `meetDate` は任意（`YYYY-MM-DD`）
 
 ### 検索APIレスポンス（抜粋）

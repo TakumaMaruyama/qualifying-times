@@ -3,6 +3,10 @@
 import { useState } from "react";
 
 import {
+  COURSE_LABELS,
+  formatCourseStandardRecordLabel,
+} from "@/lib/course-label";
+import {
   COURSES,
   EVENT_CODE_REGEX,
   GENDERS,
@@ -75,16 +79,6 @@ const LEVEL_LABELS: Record<StandardLevel, string> = {
   kyushu: "九州レベル",
   kagoshima: "県レベル",
 };
-
-const COURSE_LABELS: Record<Course, string> = {
-  SCM: "短水路 (25m)",
-  LCM: "長水路 (50m)",
-  ANY: "どちらでも良い",
-};
-
-function formatCourseStandardRecordLabel(course: Course): string {
-  return `${COURSE_LABELS[course]}の標準記録`;
-}
 
 const GENDER_LABELS: Record<Gender, string> = {
   M: "男子",

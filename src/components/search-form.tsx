@@ -3,6 +3,16 @@
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 
+import {
+  COMPARE_AGE_OPTIONS,
+  formatCompareAgeLabel,
+  type CompareAgeOption,
+} from "@/lib/compare-age";
+import {
+  COURSE_ANY_DESCRIPTION,
+  COURSE_LABELS,
+  formatCourseStandardRecordLabel,
+} from "@/lib/course-label";
 import { parseIsoDateOnly } from "@/lib/date";
 import { COURSES, GENDERS } from "@/lib/domain";
 import {
@@ -22,17 +32,6 @@ const GENDER_LABELS: Record<FormValues["gender"], string> = {
   M: "男子",
   F: "女子",
 };
-
-const COURSE_LABELS: Record<FormValues["course"], string> = {
-  SCM: "短水路 (25m)",
-  LCM: "長水路 (50m)",
-  ANY: "どちらでも良い",
-};
-const COMPARE_OFFSET_OPTIONS = [1, 2, 3] as const;
-
-function formatCourseStandardRecordLabel(course: FormValues["course"]): string {
-  return `${COURSE_LABELS[course]}の標準記録`;
-}
 
 function validate(values: FormValues): FormErrors {
   const errors: FormErrors = {};
@@ -57,8 +56,8 @@ function buildSearchQuery(values: FormValues): URLSearchParams {
     course: values.course,
   });
 
-  if (values.compareOffsets.length > 0) {
-    query.set("compareOffsets", values.compareOffsets.join(","));
+  if (values.compareAges.length > 0) {
+    query.set("compareAges", values.compareAges.join(","));
   }
 
   return query;
@@ -93,7 +92,7 @@ export function SearchForm() {
       birthDate: "",
       course: "ANY",
       season: "",
-      compareOffsets: [],
+      compareAges: [],
     };
   });
   const [history, setHistory] = useState<SearchHistoryItem[]>(() => readSearchHistory());
@@ -107,12 +106,12 @@ export function SearchForm() {
     setErrors(validate(next));
   };
 
-  const toggleCompareOffset = (offset: (typeof COMPARE_OFFSET_OPTIONS)[number]) => {
-    const exists = values.compareOffsets.includes(offset);
-    const nextOffsets = exists
-      ? values.compareOffsets.filter((item) => item !== offset)
-      : [...values.compareOffsets, offset].sort((a, b) => a - b);
-    setField("compareOffsets", nextOffsets);
+  const toggleCompareAge = (targetAge: CompareAgeOption) => {
+    const exists = values.compareAges.includes(targetAge);
+    const nextAges = exists
+      ? values.compareAges.filter((item) => item !== targetAge)
+      : [...values.compareAges, targetAge].sort((a, b) => a - b);
+    setField("compareAges", nextAges);
   };
 
   const pushToResult = (input: FormValues) => {
@@ -132,7 +131,7 @@ export function SearchForm() {
       birthDate: item.birthDate,
       course: item.course,
       season: "",
-      compareOffsets: item.compareOffsets,
+      compareAges: item.compareAges,
     };
 
     setValues(input);
@@ -209,26 +208,29 @@ export function SearchForm() {
             </option>
           ))}
         </select>
+        <p className="mt-1 text-xs text-zinc-600">{COURSE_ANY_DESCRIPTION}</p>
       </div>
 
       <div>
         <label className="mb-1 block text-sm font-medium">比較年齢（任意）</label>
         <div className="flex flex-wrap gap-2">
-          {COMPARE_OFFSET_OPTIONS.map((offset) => (
+          {COMPARE_AGE_OPTIONS.map((targetAge) => (
             <label
-              key={offset}
+              key={targetAge}
               className="inline-flex cursor-pointer items-center gap-1 rounded border border-zinc-300 px-2 py-1 text-sm"
             >
               <input
                 type="checkbox"
-                checked={values.compareOffsets.includes(offset)}
-                onChange={() => toggleCompareOffset(offset)}
+                checked={values.compareAges.includes(targetAge)}
+                onChange={() => toggleCompareAge(targetAge)}
               />
-              +{offset}歳
+              {formatCompareAgeLabel(targetAge)}
             </label>
           ))}
         </div>
-        <p className="mt-1 text-xs text-zinc-600">現在年齢は常に表示されます。</p>
+        <p className="mt-1 text-xs text-zinc-600">
+          現在年齢の区分は常に表示されます（17歳以上は17歳以上区分として扱います）。
+        </p>
       </div>
 
       <button
@@ -256,8 +258,8 @@ export function SearchForm() {
                 <p className="text-sm font-medium">
                   選手名: {item.playerName === "" ? "未入力" : item.playerName} / {GENDER_LABELS[item.gender]} /{" "}
                   {item.birthDate} / {formatCourseStandardRecordLabel(item.course)}
-                  {item.compareOffsets.length > 0
-                    ? ` / 比較: ${item.compareOffsets.map((offset) => `+${offset}歳`).join(", ")}`
+                  {item.compareAges.length > 0
+                    ? ` / 比較: ${item.compareAges.map((value) => formatCompareAgeLabel(value)).join(", ")}`
                     : ""}
                 </p>
                 <p className="mt-1 text-xs text-zinc-600">

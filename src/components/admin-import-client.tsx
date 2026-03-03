@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 
 import { AdminRecordsEditor } from "@/components/admin-records-editor";
+import { COURSE_LABELS } from "@/lib/course-label";
 import { parseIsoDateOnly } from "@/lib/date";
 import { COURSES, STANDARD_LEVELS, type Course, type StandardLevel } from "@/lib/domain";
 
@@ -63,12 +64,6 @@ const LEVEL_LABELS: Record<StandardLevel, string> = {
   national: "全国レベル",
   kyushu: "九州レベル",
   kagoshima: "県レベル",
-};
-
-const COURSE_LABELS: Record<Course, string> = {
-  SCM: "短水路 (25m)",
-  LCM: "長水路 (50m)",
-  ANY: "どちらでも良い",
 };
 
 const STATUS_LABELS = {

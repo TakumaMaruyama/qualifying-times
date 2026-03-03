@@ -4,7 +4,20 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 
-import { parseIsoDateOnly } from "@/lib/date";
+import {
+  formatCompareAgeLabel,
+  normalizeCompareAges,
+  toCompareAgeBucket,
+} from "@/lib/compare-age";
+import {
+  COURSE_ANY_DESCRIPTION,
+  formatCourseStandardRecordLabel,
+} from "@/lib/course-label";
+import {
+  calculateFullAge,
+  getCurrentDatePartsInTimeZone,
+  parseIsoDateOnly,
+} from "@/lib/date";
 import {
   COURSES,
   GENDERS,
@@ -39,22 +52,58 @@ const LEVEL_LABELS: Record<StandardLevel, string> = {
   kagoshima: "県レベル",
 };
 
-const COURSE_LABELS: Record<Course, string> = {
-  SCM: "短水路 (25m)",
-  LCM: "長水路 (50m)",
-  ANY: "どちらでも良い",
-};
-
-function formatCourseStandardRecordLabel(course: Course): string {
-  return `${COURSE_LABELS[course]}の標準記録`;
-}
-
 function isCourse(value: string | null): value is Course {
   return value !== null && COURSES.includes(value as Course);
 }
 
 function isGender(value: string | null): value is "M" | "F" {
   return value !== null && GENDERS.includes(value as "M" | "F");
+}
+
+function parseCompareAges(raw: string): number[] | null {
+  const values = raw
+    .split(",")
+    .map((value) => value.trim())
+    .filter((value) => value !== "");
+
+  const parsed: number[] = [];
+  for (const value of values) {
+    const age = Number.parseInt(value, 10);
+    if (!Number.isInteger(age) || age < 9 || age > 17) {
+      return null;
+    }
+    parsed.push(age);
+  }
+
+  return normalizeCompareAges(parsed);
+}
+
+function parseLegacyCompareOffsets(raw: string, birthDate: string): number[] | null {
+  const values = raw
+    .split(",")
+    .map((value) => value.trim())
+    .filter((value) => value !== "");
+
+  const offsets: number[] = [];
+  for (const value of values) {
+    const offset = Number.parseInt(value, 10);
+    if (!Number.isInteger(offset) || offset < 1 || offset > 20) {
+      return null;
+    }
+    offsets.push(offset);
+  }
+
+  const birthParts = parseIsoDateOnly(birthDate);
+  if (!birthParts) {
+    return null;
+  }
+
+  const currentDate = getCurrentDatePartsInTimeZone("Asia/Tokyo");
+  const currentAge = calculateFullAge(birthParts, currentDate);
+
+  return normalizeCompareAges(
+    offsets.map((offset) => toCompareAgeBucket(currentAge + offset)),
+  );
 }
 
 export function ResultClient() {
@@ -64,6 +113,7 @@ export function ResultClient() {
     const gender = params.get("gender");
     const birthDate = params.get("birthDate");
     const course = params.get("course");
+    const compareAgesRaw = params.get("compareAges");
     const compareOffsetsRaw = params.get("compareOffsets");
 
     if (!isGender(gender)) {
@@ -78,22 +128,19 @@ export function ResultClient() {
       return { error: "course が不正です。" };
     }
 
-    const compareOffsets: number[] = [];
-    if (compareOffsetsRaw && compareOffsetsRaw.trim() !== "") {
-      const values = compareOffsetsRaw.split(",").map((value) => value.trim());
-      for (const value of values) {
-        if (value === "") {
-          continue;
-        }
-        const parsed = Number.parseInt(value, 10);
-        if (!Number.isInteger(parsed) || parsed < 1 || parsed > 20) {
-          return { error: "compareOffsets が不正です。" };
-        }
-        if (!compareOffsets.includes(parsed)) {
-          compareOffsets.push(parsed);
-        }
+    let compareAges: number[] = [];
+    if (compareAgesRaw && compareAgesRaw.trim() !== "") {
+      const parsedCompareAges = parseCompareAges(compareAgesRaw);
+      if (parsedCompareAges === null) {
+        return { error: "compareAges が不正です。" };
       }
-      compareOffsets.sort((a, b) => a - b);
+      compareAges = parsedCompareAges;
+    } else if (compareOffsetsRaw && compareOffsetsRaw.trim() !== "") {
+      const migratedCompareAges = parseLegacyCompareOffsets(compareOffsetsRaw, birthDate);
+      if (migratedCompareAges === null) {
+        return { error: "compareOffsets が不正です。" };
+      }
+      compareAges = migratedCompareAges;
     }
 
     return {
@@ -102,7 +149,7 @@ export function ResultClient() {
         birthDate,
         course,
         season: null,
-        compareOffsets,
+        compareAges,
       },
     };
   }, [params]);
@@ -193,8 +240,12 @@ export function ResultClient() {
             <p>
               <span className="font-medium">検索対象:</span> {formatCourseStandardRecordLabel(data.course)}
             </p>
+            {data.course === "ANY" ? (
+              <p className="text-xs text-zinc-600 sm:col-span-2">{COURSE_ANY_DESCRIPTION}</p>
+            ) : null}
             <p className="sm:col-span-2">
-              <span className="font-medium">比較年齢:</span> {data.ages.map((value) => `${value}歳`).join(", ")}
+              <span className="font-medium">比較年齢:</span>{" "}
+              {data.ages.map((value) => formatCompareAgeLabel(value)).join(", ")}
             </p>
           </div>
 
@@ -235,7 +286,7 @@ export function ResultClient() {
                                     <th className="py-2 pr-3">種目</th>
                                     {data.ages.map((targetAge) => (
                                       <th key={`${meet.meet_id}-age-${targetAge}`} className="py-2 pr-3">
-                                        {targetAge}歳
+                                        {formatCompareAgeLabel(targetAge)}
                                       </th>
                                     ))}
                                   </tr>

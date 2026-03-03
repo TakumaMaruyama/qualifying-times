@@ -1,6 +1,10 @@
 import { and, asc, eq, gte, inArray, lte, sql } from "drizzle-orm";
 import { z } from "zod";
 
+import {
+  normalizeCompareAges,
+  toCompareAgeBucket,
+} from "@/lib/compare-age";
 import { db } from "@/db/client";
 import { meets, standards } from "@/db/schema";
 import {
@@ -26,6 +30,7 @@ export const searchRequestSchema = z.object({
   birthDate: z.string(),
   course: courseSchema,
   season: z.number().int().min(1900).max(3000).nullable().optional().default(null),
+  compareAges: z.array(z.number().int().min(9).max(17)).optional().default([]),
   compareOffsets: z.array(z.number().int().min(1).max(20)).optional().default([]),
 });
 
@@ -114,10 +119,13 @@ export async function searchStandards(input: SearchRequest): Promise<SearchRespo
 
   const currentDate = getCurrentDatePartsInTimeZone("Asia/Tokyo");
   const age = calculateFullAge(birthDate, currentDate);
-  const compareOffsets = [...new Set(input.compareOffsets)].sort((a, b) => a - b);
-  const ages = [age, ...compareOffsets.map((offset) => age + offset)]
-    .filter((value) => value >= 0 && value <= 120)
-    .filter((value, index, values) => values.indexOf(value) === index);
+  const currentAgeBucket = toCompareAgeBucket(age);
+  const compareAges = normalizeCompareAges(
+    input.compareAges.length > 0
+      ? input.compareAges
+      : input.compareOffsets.map((offset) => toCompareAgeBucket(age + offset)),
+  );
+  const ages = [...new Set([currentAgeBucket, ...compareAges])].sort((a, b) => a - b);
   const courses = resolveSearchCourses(input.course);
   const searchAllSeasons = input.course === "ANY" && input.season === null;
 
