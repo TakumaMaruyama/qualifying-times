@@ -232,6 +232,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       const updated = await db
         .update(meets)
         .set({
+          ...(input.level !== undefined ? { level: input.level } : {}),
           season: input.season,
           ...(input.meet_name !== undefined ? { name: input.meet_name } : {}),
           ...(input.meet_date !== undefined ? { meetDate: input.meet_date } : {}),
@@ -279,6 +280,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       const updated = await db
         .update(meets)
         .set({
+          ...(input.level !== undefined ? { level: input.level } : {}),
           season: input.season,
           ...(input.meet_name !== undefined ? { name: input.meet_name } : {}),
           ...(input.meet_date !== undefined ? { meetDate: input.meet_date } : {}),

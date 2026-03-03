@@ -39,6 +39,7 @@ const meetMetadataSchema = z.record(z.string(), z.unknown());
 
 export const adminMeetUpdateSchema = z
   .object({
+    level: standardLevelSchema.optional(),
     season: z.coerce.number().int().min(1900).max(3000),
     meet_name: z.string().trim().min(1).optional(),
     meet_date: z.union([z.string().trim().min(1), z.null()]).optional(),

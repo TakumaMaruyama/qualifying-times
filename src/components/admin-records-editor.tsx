@@ -218,6 +218,7 @@ export function AdminRecordsEditor({
   const [addingRecord, setAddingRecord] = useState(false);
 
   const [newRecord, setNewRecord] = useState<NewRecord>(newRecordDefault());
+  const [editingMeetLevel, setEditingMeetLevel] = useState<StandardLevel>(defaultLevel);
   const [editingMeetName, setEditingMeetName] = useState("");
   const [editingSeason, setEditingSeason] = useState("");
   const [editingMeetDate, setEditingMeetDate] = useState("");
@@ -292,6 +293,7 @@ export function AdminRecordsEditor({
       }
 
       setSelectedMeet(body.meet);
+      setEditingMeetLevel(body.meet.level);
       setEditingMeetName(body.meet.name);
       setEditingSeason(String(body.meet.season));
       setEditingMeetDate(body.meet.meet_date ?? "");
@@ -565,6 +567,7 @@ export function AdminRecordsEditor({
         method: "PATCH",
         headers: buildHeaders(adminToken, true),
         body: JSON.stringify({
+          level: editingMeetLevel,
           season: seasonNumber,
           meet_name: normalizedMeetName,
           meet_date: normalizedMeetDate,
@@ -587,13 +590,18 @@ export function AdminRecordsEditor({
       const updatedMeet = body.meet;
 
       setSelectedMeet(updatedMeet);
+      setEditingMeetLevel(updatedMeet.level);
       setEditingMeetName(updatedMeet.name);
       setEditingSeason(String(updatedMeet.season));
       setEditingMeetDate(updatedMeet.meet_date ?? "");
       setEditingMeetDateEnd(updatedMeet.meet_date_end ?? "");
       setEditingMetadataText(formatMetadataForEditor(updatedMeet.metadata));
-      setMeets((prev) =>
-        prev.map((item) =>
+      setMeets((prev) => {
+        if (updatedMeet.level !== level) {
+          return prev.filter((item) => item.id !== updatedMeet.id);
+        }
+
+        return prev.map((item) =>
           item.id === updatedMeet.id
             ? {
                 ...item,
@@ -604,9 +612,9 @@ export function AdminRecordsEditor({
                 meet_date_end: updatedMeet.meet_date_end,
                 metadata: updatedMeet.metadata,
               }
-              : item,
-        ),
-      );
+            : item,
+        );
+      });
       setEditorInfo("大会情報を更新しました。");
     } catch (error) {
       setEditorError(error instanceof Error ? error.message : "大会情報の更新に失敗しました。");
@@ -701,6 +709,18 @@ export function AdminRecordsEditor({
                   大会日付: {formatMeetDateRange(selectedMeet.meet_date, selectedMeet.meet_date_end)}
                 </p>
                 <div className="mt-2 flex flex-wrap items-center gap-2">
+                  <label className="text-xs text-zinc-700">レベル</label>
+                  <select
+                    value={editingMeetLevel}
+                    onChange={(event) => setEditingMeetLevel(event.target.value as StandardLevel)}
+                    className="rounded border border-zinc-300 px-2 py-1 text-xs"
+                  >
+                    {STANDARD_LEVELS.map((value) => (
+                      <option key={value} value={value}>
+                        {value} ({LEVEL_LABELS[value]})
+                      </option>
+                    ))}
+                  </select>
                   <label className="text-xs text-zinc-700">大会名</label>
                   <input
                     type="text"
