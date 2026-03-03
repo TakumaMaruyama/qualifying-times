@@ -26,18 +26,21 @@ export const searchRequestSchema = z.object({
   birthDate: z.string(),
   course: courseSchema,
   season: z.number().int().min(1900).max(3000).nullable().optional().default(null),
+  compareOffsets: z.array(z.number().int().min(1).max(20)).optional().default([]),
 });
 
 export type SearchRequest = z.infer<typeof searchRequestSchema>;
 
 export type SearchRow = {
   event_code: string;
+  age: number;
   time: string;
 };
 
 export type SearchMeetResult = {
   meet_id: string;
   meet_name: string;
+  meet_season: number;
   meet_course: Course;
   meet_date: string | null;
   meet_metadata: Record<string, unknown> | null;
@@ -46,7 +49,8 @@ export type SearchMeetResult = {
 
 export type SearchResponse = {
   age: number;
-  season: number;
+  ages: number[];
+  season: number | null;
   course: Course;
   gender: Gender;
   results: Record<StandardLevel, SearchMeetResult[]>;
@@ -110,22 +114,38 @@ export async function searchStandards(input: SearchRequest): Promise<SearchRespo
 
   const currentDate = getCurrentDatePartsInTimeZone("Asia/Tokyo");
   const age = calculateFullAge(birthDate, currentDate);
+  const compareOffsets = [...new Set(input.compareOffsets)].sort((a, b) => a - b);
+  const ages = [age, ...compareOffsets.map((offset) => age + offset)]
+    .filter((value) => value >= 0 && value <= 120)
+    .filter((value, index, values) => values.indexOf(value) === index);
   const courses = resolveSearchCourses(input.course);
-  const season = await resolveSearchSeason({
-    fallbackDate: currentDate,
-    courses,
-    gender: input.gender,
-    age,
-  });
+  const searchAllSeasons = input.course === "ANY" && input.season === null;
+
+  const season = input.season
+    ? input.season
+    : searchAllSeasons
+      ? null
+      : await resolveSearchSeason({
+          fallbackDate: currentDate,
+          courses,
+          gender: input.gender,
+          age,
+        });
+
+  const minAge = Math.min(...ages);
+  const maxAge = Math.max(...ages);
 
   const found = await db
     .select({
       level: meets.level,
       meetId: meets.id,
       meetName: meets.name,
+      meetSeason: meets.season,
       meetCourse: meets.course,
       meetDate: meets.meetDate,
       meetMetadata: meets.metadataJson,
+      ageMin: standards.ageMin,
+      ageMax: standards.ageMax,
       eventCode: standards.eventCode,
       timeMs: standards.timeMs,
     })
@@ -133,11 +153,11 @@ export async function searchStandards(input: SearchRequest): Promise<SearchRespo
     .innerJoin(meets, eq(standards.meetId, meets.id))
     .where(
       and(
-        eq(meets.season, season),
+        ...(season === null ? [] : [eq(meets.season, season)]),
         inArray(meets.course, courses),
         eq(standards.gender, input.gender),
-        lte(standards.ageMin, age),
-        gte(standards.ageMax, age),
+        lte(standards.ageMin, maxAge),
+        gte(standards.ageMax, minAge),
         inArray(meets.level, [...STANDARD_LEVELS]),
       ),
     )
@@ -150,6 +170,7 @@ export async function searchStandards(input: SearchRequest): Promise<SearchRespo
   };
 
   const grouped = new Map<string, SearchMeetResult>();
+  const seenItemKeys = new Map<string, Set<string>>();
 
   for (const row of found) {
     const key = `${row.level}|${row.meetId}`;
@@ -159,30 +180,59 @@ export async function searchStandards(input: SearchRequest): Promise<SearchRespo
       meetGroup = {
         meet_id: row.meetId,
         meet_name: row.meetName,
+        meet_season: row.meetSeason,
         meet_course: row.meetCourse,
         meet_date: row.meetDate,
         meet_metadata: (row.meetMetadata ?? null) as Record<string, unknown> | null,
         items: [],
       };
       grouped.set(key, meetGroup);
+      seenItemKeys.set(key, new Set());
       results[row.level].push(meetGroup);
     }
 
-    meetGroup.items.push({
-      event_code: row.eventCode,
-      time: formatTimeMs(row.timeMs),
-    });
+    const seen = seenItemKeys.get(key);
+    if (!seen) {
+      continue;
+    }
+
+    for (const targetAge of ages) {
+      if (row.ageMin <= targetAge && row.ageMax >= targetAge) {
+        const itemKey = `${row.eventCode}|${targetAge}`;
+        if (seen.has(itemKey)) {
+          continue;
+        }
+        seen.add(itemKey);
+        meetGroup.items.push({
+          event_code: row.eventCode,
+          age: targetAge,
+          time: formatTimeMs(row.timeMs),
+        });
+      }
+    }
   }
 
   for (const level of STANDARD_LEVELS) {
-    results[level].sort((a, b) => a.meet_name.localeCompare(b.meet_name));
+    results[level].sort((a, b) => {
+      if (a.meet_season !== b.meet_season) {
+        return b.meet_season - a.meet_season;
+      }
+      return a.meet_name.localeCompare(b.meet_name);
+    });
     for (const meet of results[level]) {
-      meet.items.sort((a, b) => compareEventCode(a.event_code, b.event_code));
+      meet.items.sort((a, b) => {
+        const eventComparison = compareEventCode(a.event_code, b.event_code);
+        if (eventComparison !== 0) {
+          return eventComparison;
+        }
+        return a.age - b.age;
+      });
     }
   }
 
   return {
     age,
+    ages,
     season,
     course: input.course,
     gender: input.gender,

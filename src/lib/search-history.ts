@@ -11,6 +11,7 @@ export type StoredSearchInput = {
   birthDate: string;
   course: Course;
   season: string;
+  compareOffsets: number[];
 };
 
 export type SearchHistoryItem = StoredSearchInput & {
@@ -30,6 +31,9 @@ function isCourse(value: unknown): value is Course {
 }
 
 function isValidSeasonString(value: unknown): value is string {
+  if (value === undefined) {
+    return true;
+  }
   if (typeof value !== "string") {
     return false;
   }
@@ -56,6 +60,22 @@ function normalizePlayerName(value: unknown): string | null {
   return value.trim().slice(0, 50);
 }
 
+function normalizeCompareOffsets(value: unknown): number[] | null {
+  if (value === undefined) {
+    return [];
+  }
+  if (!Array.isArray(value)) {
+    return null;
+  }
+
+  const normalized = value
+    .map((item) => Number.parseInt(String(item), 10))
+    .filter((item) => Number.isInteger(item) && item >= 1 && item <= 20);
+
+  const uniqueSorted = [...new Set(normalized)].sort((a, b) => a - b);
+  return uniqueSorted;
+}
+
 function normalizeStoredSearchInput(input: unknown): StoredSearchInput | null {
   if (!isObject(input)) {
     return null;
@@ -63,6 +83,10 @@ function normalizeStoredSearchInput(input: unknown): StoredSearchInput | null {
 
   const playerName = normalizePlayerName(input.playerName);
   if (playerName === null) {
+    return null;
+  }
+  const compareOffsets = normalizeCompareOffsets(input.compareOffsets);
+  if (compareOffsets === null) {
     return null;
   }
 
@@ -84,7 +108,8 @@ function normalizeStoredSearchInput(input: unknown): StoredSearchInput | null {
     gender: input.gender,
     birthDate: input.birthDate.trim(),
     course: input.course,
-    season: input.season.trim(),
+    season: typeof input.season === "string" ? input.season.trim() : "",
+    compareOffsets,
   };
 }
 
@@ -118,7 +143,7 @@ function normalizeHistoryItem(input: unknown): SearchHistoryItem | null {
 }
 
 function makeHistoryKey(input: StoredSearchInput): string {
-  return `${input.gender}|${input.birthDate}|${input.course}|${input.season}|${input.playerName}`;
+  return `${input.gender}|${input.birthDate}|${input.course}|${input.season}|${input.playerName}|${input.compareOffsets.join(",")}`;
 }
 
 function readStorageValue(key: string): string | null {

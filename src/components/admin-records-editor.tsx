@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 
 import {
   COURSES,
@@ -66,7 +66,6 @@ type NewRecord = {
 type Props = {
   adminToken: string | null;
   defaultLevel: StandardLevel;
-  defaultSeason: string;
   defaultCourse: Course;
   onUnauthorized: () => void;
 };
@@ -163,12 +162,10 @@ function newRecordDefault(): NewRecord {
 export function AdminRecordsEditor({
   adminToken,
   defaultLevel,
-  defaultSeason,
   defaultCourse,
   onUnauthorized,
 }: Props) {
   const [level, setLevel] = useState<StandardLevel>(defaultLevel);
-  const [season, setSeason] = useState(defaultSeason);
   const [course, setCourse] = useState<Course>(defaultCourse);
 
   const [meets, setMeets] = useState<MeetSummary[]>([]);
@@ -190,20 +187,7 @@ export function AdminRecordsEditor({
   const [editorError, setEditorError] = useState<string | null>(null);
   const [editorInfo, setEditorInfo] = useState<string | null>(null);
 
-  const seasonError = useMemo(() => {
-    const seasonNumber = Number.parseInt(season, 10);
-    if (!/^\d{4}$/.test(season) || seasonNumber < 1900 || seasonNumber > 3000) {
-      return "年度は4桁の数値で入力してください。";
-    }
-    return null;
-  }, [season]);
-
   const loadMeets = async () => {
-    if (seasonError) {
-      setListError(seasonError);
-      return;
-    }
-
     setLoadingMeets(true);
     setListError(null);
     setEditorInfo(null);
@@ -211,7 +195,6 @@ export function AdminRecordsEditor({
     try {
       const params = new URLSearchParams({
         level,
-        season: season.trim(),
         course,
       });
 
@@ -513,15 +496,6 @@ export function AdminRecordsEditor({
       }
 
       const updatedMeet = body.meet;
-      const currentFilterSeason = Number.parseInt(season, 10);
-
-      if (updatedMeet.season !== currentFilterSeason) {
-        setMeets((prev) => prev.filter((item) => item.id !== updatedMeet.id));
-        setSelectedMeet(null);
-        setRecords([]);
-        setEditorInfo("大会年度を更新しました。現在の絞り込み条件から外れたため一覧から非表示にしました。");
-        return;
-      }
 
       setSelectedMeet(updatedMeet);
       setEditingSeason(String(updatedMeet.season));
@@ -542,7 +516,7 @@ export function AdminRecordsEditor({
     <section className="space-y-4 rounded border border-zinc-200 bg-white p-6">
       <h2 className="text-lg font-semibold">登録済み記録の閲覧・編集</h2>
 
-      <div className="grid gap-4 sm:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-3">
         <div>
           <label className="mb-1 block text-sm font-medium">level</label>
           <select
@@ -556,17 +530,6 @@ export function AdminRecordsEditor({
               </option>
             ))}
           </select>
-        </div>
-
-        <div>
-          <label className="mb-1 block text-sm font-medium">標準記録年度</label>
-          <input
-            type="number"
-            value={season}
-            onChange={(event) => setSeason(event.target.value)}
-            className="w-full rounded border border-zinc-300 px-3 py-2"
-          />
-          {seasonError ? <p className="mt-1 text-xs text-red-700">{seasonError}</p> : null}
         </div>
 
         <div>
@@ -617,6 +580,7 @@ export function AdminRecordsEditor({
                     }`}
                   >
                     <p className="font-semibold">{meet.name}</p>
+                    <p>標準記録年度: {meet.season}</p>
                     <p>{formatCourseStandardRecordLabel(meet.course)}</p>
                     <p>日付: {meet.meet_date ?? "未設定"}</p>
                     <p>件数: {meet.row_count}</p>

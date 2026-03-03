@@ -616,7 +616,6 @@ export function AdminImportClient() {
         key={recordsEditorReloadKey}
         adminToken={adminToken}
         defaultLevel={level}
-        defaultSeason={season}
         defaultCourse={course}
         onUnauthorized={handleUnauthorized}
       />

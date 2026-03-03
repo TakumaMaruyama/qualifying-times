@@ -28,6 +28,7 @@ const COURSE_LABELS: Record<FormValues["course"], string> = {
   LCM: "長水路 (50m)",
   ANY: "どちらでも良い",
 };
+const COMPARE_OFFSET_OPTIONS = [1, 2, 3] as const;
 
 function formatCourseStandardRecordLabel(course: FormValues["course"]): string {
   return `${COURSE_LABELS[course]}の標準記録`;
@@ -50,11 +51,17 @@ function validate(values: FormValues): FormErrors {
 }
 
 function buildSearchQuery(values: FormValues): URLSearchParams {
-  return new URLSearchParams({
+  const query = new URLSearchParams({
     gender: values.gender,
     birthDate: values.birthDate,
     course: values.course,
   });
+
+  if (values.compareOffsets.length > 0) {
+    query.set("compareOffsets", values.compareOffsets.join(","));
+  }
+
+  return query;
 }
 
 function formatSearchedAt(isoString: string): string {
@@ -86,6 +93,7 @@ export function SearchForm() {
       birthDate: "",
       course: "ANY",
       season: "",
+      compareOffsets: [],
     };
   });
   const [history, setHistory] = useState<SearchHistoryItem[]>(() => readSearchHistory());
@@ -97,6 +105,14 @@ export function SearchForm() {
     const next = { ...values, [key]: value };
     setValues(next);
     setErrors(validate(next));
+  };
+
+  const toggleCompareOffset = (offset: (typeof COMPARE_OFFSET_OPTIONS)[number]) => {
+    const exists = values.compareOffsets.includes(offset);
+    const nextOffsets = exists
+      ? values.compareOffsets.filter((item) => item !== offset)
+      : [...values.compareOffsets, offset].sort((a, b) => a - b);
+    setField("compareOffsets", nextOffsets);
   };
 
   const pushToResult = (input: FormValues) => {
@@ -116,6 +132,7 @@ export function SearchForm() {
       birthDate: item.birthDate,
       course: item.course,
       season: "",
+      compareOffsets: item.compareOffsets,
     };
 
     setValues(input);
@@ -194,6 +211,26 @@ export function SearchForm() {
         </select>
       </div>
 
+      <div>
+        <label className="mb-1 block text-sm font-medium">比較年齢（任意）</label>
+        <div className="flex flex-wrap gap-2">
+          {COMPARE_OFFSET_OPTIONS.map((offset) => (
+            <label
+              key={offset}
+              className="inline-flex cursor-pointer items-center gap-1 rounded border border-zinc-300 px-2 py-1 text-sm"
+            >
+              <input
+                type="checkbox"
+                checked={values.compareOffsets.includes(offset)}
+                onChange={() => toggleCompareOffset(offset)}
+              />
+              +{offset}歳
+            </label>
+          ))}
+        </div>
+        <p className="mt-1 text-xs text-zinc-600">現在年齢は常に表示されます。</p>
+      </div>
+
       <button
         type="submit"
         className="w-full rounded bg-zinc-900 px-4 py-2 font-medium text-white hover:bg-zinc-700"
@@ -219,6 +256,9 @@ export function SearchForm() {
                 <p className="text-sm font-medium">
                   選手名: {item.playerName === "" ? "未入力" : item.playerName} / {GENDER_LABELS[item.gender]} /{" "}
                   {item.birthDate} / {formatCourseStandardRecordLabel(item.course)}
+                  {item.compareOffsets.length > 0
+                    ? ` / 比較: ${item.compareOffsets.map((offset) => `+${offset}歳`).join(", ")}`
+                    : ""}
                 </p>
                 <p className="mt-1 text-xs text-zinc-600">
                   検索日時: {formatSearchedAt(item.searchedAt)}

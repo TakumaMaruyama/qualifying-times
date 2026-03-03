@@ -17,15 +17,17 @@ import { formatEventCodeLabel } from "@/lib/event";
 type SearchMeetResult = {
   meet_id: string;
   meet_name: string;
+  meet_season: number;
   meet_course: Course;
   meet_date: string | null;
   meet_metadata: Record<string, unknown> | null;
-  items: Array<{ event_code: string; time: string }>;
+  items: Array<{ event_code: string; age: number; time: string }>;
 };
 
 type SearchApiResponse = {
   age: number;
-  season: number;
+  ages: number[];
+  season: number | null;
   course: Course;
   gender: "M" | "F";
   results: Record<StandardLevel, SearchMeetResult[]>;
@@ -62,6 +64,7 @@ export function ResultClient() {
     const gender = params.get("gender");
     const birthDate = params.get("birthDate");
     const course = params.get("course");
+    const compareOffsetsRaw = params.get("compareOffsets");
 
     if (!isGender(gender)) {
       return { error: "gender が不正です。" };
@@ -75,12 +78,31 @@ export function ResultClient() {
       return { error: "course が不正です。" };
     }
 
+    const compareOffsets: number[] = [];
+    if (compareOffsetsRaw && compareOffsetsRaw.trim() !== "") {
+      const values = compareOffsetsRaw.split(",").map((value) => value.trim());
+      for (const value of values) {
+        if (value === "") {
+          continue;
+        }
+        const parsed = Number.parseInt(value, 10);
+        if (!Number.isInteger(parsed) || parsed < 1 || parsed > 20) {
+          return { error: "compareOffsets が不正です。" };
+        }
+        if (!compareOffsets.includes(parsed)) {
+          compareOffsets.push(parsed);
+        }
+      }
+      compareOffsets.sort((a, b) => a - b);
+    }
+
     return {
       payload: {
         gender,
         birthDate,
         course,
         season: null,
+        compareOffsets,
       },
     };
   }, [params]);
@@ -163,13 +185,16 @@ export function ResultClient() {
               <span className="font-medium">算出年齢:</span> {data.age} 歳
             </p>
             <p>
-              <span className="font-medium">年度:</span> {data.season}
+              <span className="font-medium">年度:</span> {data.season === null ? "すべて" : data.season}
             </p>
             <p>
               <span className="font-medium">性別:</span> {data.gender}
             </p>
             <p>
               <span className="font-medium">検索対象:</span> {formatCourseStandardRecordLabel(data.course)}
+            </p>
+            <p className="sm:col-span-2">
+              <span className="font-medium">比較年齢:</span> {data.ages.map((value) => `${value}歳`).join(", ")}
             </p>
           </div>
 
@@ -193,7 +218,8 @@ export function ResultClient() {
                             </span>
                           </div>
                             <p className="mt-1 text-xs text-zinc-600">
-                              大会日付: {meet.meet_date ?? "未設定"} / 種目数: {meet.items.length}
+                              標準記録年度: {meet.meet_season} / 大会日付: {meet.meet_date ?? "未設定"} / 種目数:{" "}
+                              {new Set(meet.items.map((item) => item.event_code)).size}
                             </p>
                           </summary>
                           <div className="border-t border-zinc-200 p-3">
@@ -207,19 +233,41 @@ export function ResultClient() {
                                 <thead>
                                   <tr className="border-b border-zinc-200 text-left">
                                     <th className="py-2 pr-3">種目</th>
-                                    <th className="py-2">標準記録</th>
+                                    {data.ages.map((targetAge) => (
+                                      <th key={`${meet.meet_id}-age-${targetAge}`} className="py-2 pr-3">
+                                        {targetAge}歳
+                                      </th>
+                                    ))}
                                   </tr>
                                 </thead>
                                 <tbody>
-                                  {meet.items.map((row, index) => (
-                                    <tr
-                                      key={`${meet.meet_id}-${row.event_code}-${index}`}
-                                      className="border-b border-zinc-100"
-                                    >
-                                      <td className="py-2 pr-3">{formatEventCodeLabel(row.event_code)}</td>
-                                      <td className="py-2">{row.time}</td>
-                                    </tr>
-                                  ))}
+                                  {Array.from(new Set(meet.items.map((item) => item.event_code))).map(
+                                    (eventCode) => {
+                                      const byAge = new Map<number, string>();
+                                      for (const item of meet.items) {
+                                        if (item.event_code === eventCode) {
+                                          byAge.set(item.age, item.time);
+                                        }
+                                      }
+
+                                      return (
+                                        <tr
+                                          key={`${meet.meet_id}-${eventCode}`}
+                                          className="border-b border-zinc-100"
+                                        >
+                                          <td className="py-2 pr-3">{formatEventCodeLabel(eventCode)}</td>
+                                          {data.ages.map((targetAge) => (
+                                            <td
+                                              key={`${meet.meet_id}-${eventCode}-${targetAge}`}
+                                              className="py-2 pr-3"
+                                            >
+                                              {byAge.get(targetAge) ?? "-"}
+                                            </td>
+                                          ))}
+                                        </tr>
+                                      );
+                                    },
+                                  )}
                                 </tbody>
                               </table>
                             </div>

@@ -34,15 +34,11 @@ export async function GET(request: NextRequest) {
       .leftJoin(standards, eq(standards.meetId, meets.id))
       .where(
         filter.course === "ANY"
-          ? and(eq(meets.level, filter.level), eq(meets.season, filter.season))
-          : and(
-              eq(meets.level, filter.level),
-              eq(meets.season, filter.season),
-              eq(meets.course, filter.course),
-            ),
+          ? eq(meets.level, filter.level)
+          : and(eq(meets.level, filter.level), eq(meets.course, filter.course)),
       )
       .groupBy(meets.id)
-      .orderBy(asc(meets.name), asc(meets.course));
+      .orderBy(asc(meets.season), asc(meets.name), asc(meets.course));
 
     return NextResponse.json({
       meets: rows.map((row) => ({
