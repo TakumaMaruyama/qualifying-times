@@ -1,10 +1,14 @@
-import { asc, eq } from "drizzle-orm";
+import { asc, eq, sql } from "drizzle-orm";
 import { type NextRequest, NextResponse } from "next/server";
 
 import { db } from "@/db/client";
 import { meets, standards } from "@/db/schema";
 import { isAdminRequest } from "@/lib/admin-auth";
-import { parseAdminRecordUpsertInput, parseUuid } from "@/lib/admin-records-service";
+import {
+  parseAdminMeetUpdateInput,
+  parseAdminRecordUpsertInput,
+  parseUuid,
+} from "@/lib/admin-records-service";
 import { BadRequestError } from "@/lib/errors";
 import { formatTimeMs } from "@/lib/time";
 
@@ -162,6 +166,71 @@ export async function POST(request: NextRequest, context: RouteContext) {
   } catch (error) {
     if (error instanceof SyntaxError || error instanceof BadRequestError) {
       return NextResponse.json({ error: error.message }, { status: 400 });
+    }
+
+    console.error(error);
+    return NextResponse.json({ error: "Internal server error." }, { status: 500 });
+  }
+}
+
+export async function PATCH(request: NextRequest, context: RouteContext) {
+  try {
+    if (!isAdminRequest(request)) {
+      return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
+    }
+
+    const params = await context.params;
+    const meetId = parseUuid(params.meetId, "meetId");
+
+    const body = await request.json();
+    const input = parseAdminMeetUpdateInput(body);
+
+    const updated = await db
+      .update(meets)
+      .set({
+        season: input.season,
+        updatedAt: sql`now()`,
+      })
+      .where(eq(meets.id, meetId))
+      .returning({
+        id: meets.id,
+        level: meets.level,
+        season: meets.season,
+        course: meets.course,
+        name: meets.name,
+        meetDate: meets.meetDate,
+        metadata: meets.metadataJson,
+        updatedAt: meets.updatedAt,
+      });
+
+    const row = updated[0];
+    if (!row) {
+      return NextResponse.json({ error: "Meet not found." }, { status: 404 });
+    }
+
+    return NextResponse.json({
+      meet: {
+        id: row.id,
+        level: row.level,
+        season: row.season,
+        course: row.course,
+        name: row.name,
+        meet_date: row.meetDate,
+        metadata: (row.metadata ?? null) as Record<string, unknown> | null,
+        updated_at: row.updatedAt.toISOString(),
+      },
+    });
+  } catch (error) {
+    if (error instanceof SyntaxError || error instanceof BadRequestError) {
+      return NextResponse.json({ error: error.message }, { status: 400 });
+    }
+
+    const maybeError = error as { code?: string };
+    if (maybeError.code === "23505") {
+      return NextResponse.json(
+        { error: "同一の level / season / course / 大会名 が既に存在します。" },
+        { status: 409 },
+      );
     }
 
     console.error(error);

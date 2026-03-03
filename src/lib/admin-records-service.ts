@@ -34,11 +34,17 @@ export const adminRecordUpsertSchema = z
     }
   });
 
+export const adminMeetUpdateSchema = z.object({
+  season: z.coerce.number().int().min(1900).max(3000),
+});
+
 export type AdminRecordsFilter = z.infer<typeof adminRecordsFilterSchema>;
 
 export type AdminRecordUpsertInput = z.infer<typeof adminRecordUpsertSchema> & {
   time_ms: number;
 };
+
+export type AdminMeetUpdateInput = z.infer<typeof adminMeetUpdateSchema>;
 
 function issuesToMessage(issues: z.ZodIssue[]): string {
   return issues
@@ -74,6 +80,14 @@ export function parseAdminRecordUpsertInput(input: unknown): AdminRecordUpsertIn
     ...parsed.data,
     time_ms,
   };
+}
+
+export function parseAdminMeetUpdateInput(input: unknown): AdminMeetUpdateInput {
+  const parsed = adminMeetUpdateSchema.safeParse(input);
+  if (!parsed.success) {
+    throw new BadRequestError(issuesToMessage(parsed.error.issues));
+  }
+  return parsed.data;
 }
 
 export function parseUuid(input: unknown, label: string): string {

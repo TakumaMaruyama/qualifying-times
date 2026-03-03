@@ -62,7 +62,6 @@ export function ResultClient() {
     const gender = params.get("gender");
     const birthDate = params.get("birthDate");
     const course = params.get("course");
-    const seasonRaw = params.get("season");
 
     if (!isGender(gender)) {
       return { error: "gender が不正です。" };
@@ -76,21 +75,12 @@ export function ResultClient() {
       return { error: "course が不正です。" };
     }
 
-    let season: number | null = null;
-    if (seasonRaw && seasonRaw.trim() !== "") {
-      const seasonNumber = Number.parseInt(seasonRaw, 10);
-      if (!/^\d{4}$/.test(seasonRaw) || seasonNumber < 1900 || seasonNumber > 3000) {
-        return { error: "season が不正です。" };
-      }
-      season = seasonNumber;
-    }
-
     return {
       payload: {
         gender,
         birthDate,
         course,
-        season,
+        season: null,
       },
     };
   }, [params]);

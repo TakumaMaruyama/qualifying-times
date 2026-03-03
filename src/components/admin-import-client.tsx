@@ -449,7 +449,7 @@ export function AdminImportClient() {
           </div>
 
           <div>
-            <label className="mb-1 block text-sm font-medium">season</label>
+            <label className="mb-1 block text-sm font-medium">標準記録年度</label>
             <input
               type="number"
               value={season}

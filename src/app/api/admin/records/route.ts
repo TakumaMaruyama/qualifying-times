@@ -23,6 +23,7 @@ export async function GET(request: NextRequest) {
       .select({
         id: meets.id,
         name: meets.name,
+        season: meets.season,
         course: meets.course,
         meetDate: meets.meetDate,
         metadata: meets.metadataJson,
@@ -47,6 +48,7 @@ export async function GET(request: NextRequest) {
       meets: rows.map((row) => ({
         id: row.id,
         name: row.name,
+        season: row.season,
         course: row.course,
         meet_date: row.meetDate,
         metadata: (row.metadata ?? null) as Record<string, unknown> | null,

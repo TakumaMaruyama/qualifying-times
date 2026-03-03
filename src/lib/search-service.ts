@@ -25,7 +25,7 @@ export const searchRequestSchema = z.object({
   gender: genderSchema,
   birthDate: z.string(),
   course: courseSchema,
-  season: z.number().int().min(1900).max(3000).nullable(),
+  season: z.number().int().min(1900).max(3000).nullable().optional().default(null),
 });
 
 export type SearchRequest = z.infer<typeof searchRequestSchema>;
@@ -70,16 +70,11 @@ function resolveSearchCourses(course: Course): Course[] {
 }
 
 async function resolveSearchSeason(params: {
-  requestedSeason: number | null;
   fallbackDate: ReturnType<typeof getCurrentDatePartsInTimeZone>;
   courses: Course[];
   gender: Gender;
   age: number;
 }): Promise<number> {
-  if (params.requestedSeason !== null) {
-    return params.requestedSeason;
-  }
-
   const latestRows = await db
     .select({
       latestSeason: sql<number | null>`max(${meets.season})`,
@@ -117,7 +112,6 @@ export async function searchStandards(input: SearchRequest): Promise<SearchRespo
   const age = calculateFullAge(birthDate, currentDate);
   const courses = resolveSearchCourses(input.course);
   const season = await resolveSearchSeason({
-    requestedSeason: input.season,
     fallbackDate: currentDate,
     courses,
     gender: input.gender,

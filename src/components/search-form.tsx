@@ -46,28 +46,15 @@ function validate(values: FormValues): FormErrors {
     errors.birthDate = "YYYY-MM-DD 形式で正しい日付を入力してください。";
   }
 
-  if (values.season.trim() !== "") {
-    const seasonNumber = Number.parseInt(values.season, 10);
-    if (!/^\d{4}$/.test(values.season) || seasonNumber < 1900 || seasonNumber > 3000) {
-      errors.season = "年度は4桁の数値で入力してください（例: 2026）。";
-    }
-  }
-
   return errors;
 }
 
 function buildSearchQuery(values: FormValues): URLSearchParams {
-  const query = new URLSearchParams({
+  return new URLSearchParams({
     gender: values.gender,
     birthDate: values.birthDate,
     course: values.course,
   });
-
-  if (values.season.trim() !== "") {
-    query.set("season", values.season.trim());
-  }
-
-  return query;
 }
 
 function formatSearchedAt(isoString: string): string {
@@ -91,7 +78,7 @@ export function SearchForm() {
   const [values, setValues] = useState<FormValues>(() => {
     const loaded = readLastSearchInput();
     if (loaded) {
-      return loaded;
+      return { ...loaded, season: "" };
     }
     return {
       playerName: "",
@@ -117,8 +104,9 @@ export function SearchForm() {
   };
 
   const persistSearchInput = (input: FormValues) => {
-    writeLastSearchInput(input);
-    setHistory(upsertSearchHistory(input));
+    const normalizedInput = { ...input, season: "" };
+    writeLastSearchInput(normalizedInput);
+    setHistory(upsertSearchHistory(normalizedInput));
   };
 
   const onHistoryClick = (item: SearchHistoryItem) => {
@@ -127,7 +115,7 @@ export function SearchForm() {
       gender: item.gender,
       birthDate: item.birthDate,
       course: item.course,
-      season: item.season,
+      season: "",
     };
 
     setValues(input);
@@ -206,19 +194,6 @@ export function SearchForm() {
         </select>
       </div>
 
-      <div>
-        <label className="mb-1 block text-sm font-medium">年度（任意）</label>
-        <input
-          type="number"
-          value={values.season}
-          onChange={(event) => setField("season", event.target.value)}
-          placeholder="例: 2026"
-          className="w-full rounded border border-zinc-300 px-3 py-2"
-        />
-        <p className="mt-1 text-xs text-zinc-600">未入力の場合は最新年度の記録を検索します。</p>
-        {errors.season ? <p className="mt-1 text-sm text-red-600">{errors.season}</p> : null}
-      </div>
-
       <button
         type="submit"
         className="w-full rounded bg-zinc-900 px-4 py-2 font-medium text-white hover:bg-zinc-700"
@@ -243,8 +218,7 @@ export function SearchForm() {
               >
                 <p className="text-sm font-medium">
                   選手名: {item.playerName === "" ? "未入力" : item.playerName} / {GENDER_LABELS[item.gender]} /{" "}
-                  {item.birthDate} / {formatCourseStandardRecordLabel(item.course)} / 年度:{" "}
-                  {item.season === "" ? "最新年度" : item.season}
+                  {item.birthDate} / {formatCourseStandardRecordLabel(item.course)}
                 </p>
                 <p className="mt-1 text-xs text-zinc-600">
                   検索日時: {formatSearchedAt(item.searchedAt)}
