@@ -1,8 +1,8 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { useState } from "react";
 
-import { SearchForm } from "@/components/search-form";
 import { JSF_QUALIFICATION_URL } from "@/lib/qualification";
 
 type SearchMode = "standard" | "qualification";
@@ -11,6 +11,18 @@ const MODE_LABELS: Record<SearchMode, string> = {
   standard: "標準記録検索",
   qualification: "資格級",
 };
+
+const SearchForm = dynamic(
+  () => import("@/components/search-form").then((module) => module.SearchForm),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="rounded-lg border border-zinc-200 bg-white p-6 text-sm text-zinc-600">
+        読み込み中...
+      </div>
+    ),
+  },
+);
 
 export function HomeSearchMode() {
   const [mode, setMode] = useState<SearchMode>("standard");
