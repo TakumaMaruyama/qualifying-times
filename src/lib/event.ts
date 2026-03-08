@@ -113,15 +113,19 @@ export function compareEventCode(a: string, b: string): number {
   return a.localeCompare(b);
 }
 
-export function formatEventCodeLabel(eventCode: string): string {
+export function formatEventCodeLabelLines(eventCode: string): string[] {
   const parsed = parseEventCode(eventCode);
   if (!parsed) {
-    return eventCode;
+    return [eventCode];
   }
 
   if (parsed.kind === "relay") {
-    return `${parsed.relayCount}×${parsed.distance}m${RELAY_LABELS[parsed.stroke]}`;
+    return [`${parsed.relayCount}×${parsed.distance}m`, RELAY_LABELS[parsed.stroke]];
   }
 
-  return `${parsed.distance}m${STROKE_LABELS[parsed.stroke]}`;
+  return [`${parsed.distance}m${STROKE_LABELS[parsed.stroke]}`];
+}
+
+export function formatEventCodeLabel(eventCode: string): string {
+  return formatEventCodeLabelLines(eventCode).join("");
 }

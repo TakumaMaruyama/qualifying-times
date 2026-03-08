@@ -19,7 +19,7 @@ import {
   type Course,
   type StandardLevel,
 } from "@/lib/domain";
-import { formatEventCodeLabel } from "@/lib/event";
+import { formatEventCodeLabelLines } from "@/lib/event";
 
 type SearchMeetResult = {
   meet_id: string;
@@ -299,11 +299,22 @@ export function ResultClient() {
                                             byAge.set(item.age, item.time);
                                           }
                                         }
+                                        const eventLabelLines = formatEventCodeLabelLines(eventCode);
 
                                         return (
                                           <tr key={`${meet.meet_id}-${eventCode}`}>
-                                            <td className="sticky left-0 z-10 border-r border-b border-zinc-200 bg-white py-2 pr-3 whitespace-nowrap">
-                                              {formatEventCodeLabel(eventCode)}
+                                            <td
+                                              className={`sticky left-0 z-10 border-r border-b border-zinc-200 bg-white py-2 pr-3 ${
+                                                eventLabelLines.length > 1
+                                                  ? "leading-tight"
+                                                  : "whitespace-nowrap"
+                                              }`}
+                                            >
+                                              {eventLabelLines.map((line, index) => (
+                                                <span key={`${eventCode}-${index}`} className="block">
+                                                  {line}
+                                                </span>
+                                              ))}
                                             </td>
                                             {data.targetAges.map((targetAge) => (
                                               <td
