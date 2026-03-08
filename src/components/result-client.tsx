@@ -274,12 +274,17 @@ export function ResultClient() {
                                 </p>
                               ) : null}
                               <div className="overflow-x-auto">
-                                <table className="min-w-full text-sm">
+                                <table className="w-max min-w-full border-separate border-spacing-0 text-sm">
                                   <thead>
-                                    <tr className="border-b border-zinc-200 text-left">
-                                      <th className="py-2 pr-3">種目</th>
+                                    <tr className="text-left">
+                                      <th className="sticky top-0 left-0 z-30 border-b border-r border-zinc-200 bg-white py-2 pr-3 whitespace-nowrap">
+                                        種目
+                                      </th>
                                       {data.targetAges.map((targetAge) => (
-                                        <th key={`${meet.meet_id}-age-${targetAge}`} className="py-2 pr-3">
+                                        <th
+                                          key={`${meet.meet_id}-age-${targetAge}`}
+                                          className="sticky top-0 z-20 border-b border-zinc-200 bg-white py-2 pr-3 whitespace-nowrap"
+                                        >
                                           {formatCompareAgeLabel(targetAge)}
                                         </th>
                                       ))}
@@ -296,15 +301,14 @@ export function ResultClient() {
                                         }
 
                                         return (
-                                          <tr
-                                            key={`${meet.meet_id}-${eventCode}`}
-                                            className="border-b border-zinc-100"
-                                          >
-                                            <td className="py-2 pr-3">{formatEventCodeLabel(eventCode)}</td>
+                                          <tr key={`${meet.meet_id}-${eventCode}`}>
+                                            <td className="sticky left-0 z-10 border-r border-b border-zinc-200 bg-white py-2 pr-3 whitespace-nowrap">
+                                              {formatEventCodeLabel(eventCode)}
+                                            </td>
                                             {data.targetAges.map((targetAge) => (
                                               <td
                                                 key={`${meet.meet_id}-${eventCode}-${targetAge}`}
-                                                className="py-2 pr-3"
+                                                className="border-b border-zinc-100 py-2 pr-3 whitespace-nowrap"
                                               >
                                                 {byAge.get(targetAge) ?? "-"}
                                               </td>
