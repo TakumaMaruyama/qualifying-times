@@ -8,9 +8,6 @@ import {
   formatCompareAgeLabel,
   type CompareAgeOption,
 } from "@/lib/compare-age";
-import {
-  COURSE_ANY_DESCRIPTION,
-} from "@/lib/course-label";
 import { GENDERS } from "@/lib/domain";
 import {
   readLastSearchInput,
@@ -169,14 +166,6 @@ export function SearchForm() {
             </option>
           ))}
         </select>
-      </div>
-
-      <div className="rounded border border-zinc-200 bg-zinc-50 px-3 py-2">
-        <p className="text-sm font-medium">プール長</p>
-        <p className="mt-1 text-xs text-zinc-600">
-          検索時の選択は不要です。短水路・長水路・共通をまとめて表示します。
-        </p>
-        <p className="mt-1 text-xs text-zinc-600">{COURSE_ANY_DESCRIPTION}</p>
       </div>
 
       <div>
