@@ -50,7 +50,7 @@ postcss-fix-tailwind-urls/  # Local PostCSS plugin for Tailwind v4 compatibility
 
 ## Database Seeding
 - `drizzle/seed.sql` — 開発環境からエクスポートしたシードデータ（sources, meets, standards）
-- `scripts/seed.mjs` — シードを実行するスクリプト（既存IDは `DO UPDATE` で更新）
+- `scripts/seed.mjs` — シードを実行するスクリプト（既存IDは変更せず、不足分だけ追加して公式スナップショットを同期）
 - `npm run db:seed` — シードスクリプトの実行コマンド
 - 初回は `npm run db:migrate` でスキーマを作成
 - `data/standards/*-current.json` — 2026-09-09に公式資料から確認した記録。大会名・年度・プール長ごとに同期し、旧年度は保持。

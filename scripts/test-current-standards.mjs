@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { PGlite } from "@electric-sql/pglite";
 import { applyCurrentStandards, readCurrentStandards } from "./current-standards.mjs";
+import { applySeedAndCurrentStandards } from "./seed.mjs";
 
 const current = readCurrentStandards();
 const db = await PGlite.create();
@@ -10,23 +11,61 @@ try {
   for (const entry of journal.entries) {
     await db.exec(readFileSync(new URL(`../drizzle/${entry.tag}.sql`, import.meta.url), "utf8"));
   }
-  await db.exec(readFileSync(new URL("../drizzle/seed.sql", import.meta.url), "utf8"));
+
+  async function assertCurrentSnapshots() {
+    let rowCount = 0;
+    for (const meet of current) {
+      const { rows: [registered] } = await db.query("SELECT id FROM meets WHERE level = $1 AND season = $2 AND course = $3 AND name = $4", [meet.level, meet.season, meet.course, meet.name]);
+      assert.ok(registered);
+      const { rows } = await db.query("SELECT gender, age_min, age_max, event_code, time_ms FROM standards WHERE meet_id = $1", [registered.id]);
+      assert.equal(rows.length, meet.rows.length, meet.identity);
+      rowCount += rows.length;
+      for (const expected of meet.rows) {
+        const actual = rows.find((row) => row.gender === expected.gender && row.age_min === expected.age_min && row.age_max === expected.age_max && row.event_code === expected.event_code);
+        assert.equal(actual?.time_ms, expected.time_ms, `${meet.identity} ${JSON.stringify(expected)}`);
+      }
+    }
+    assert.equal(rowCount, 1954);
+  }
+
+  // Bootstrap an empty migrated database through the same entry point used by db:seed.
+  await db.query("BEGIN");
+  const counts = await applySeedAndCurrentStandards(db, current);
+  await db.query("COMMIT");
+  assert.deepEqual(counts, { meets: 15, standards: 1954 });
+  await assertCurrentSnapshots();
+
+  const seededMeets = (await db.query("SELECT * FROM meets ORDER BY id")).rows;
+  const unrelatedMeet = seededMeets.find((meet) => !current.some((currentMeet) =>
+    currentMeet.level === meet.level && currentMeet.season === meet.season
+      && currentMeet.course === meet.course && currentMeet.name === meet.name,
+  ));
+  assert.ok(unrelatedMeet, "A seed-only meet is required for preservation testing");
+  const { rows: [unrelatedStandard] } = await db.query(`SELECT s.id, s.source_id FROM standards s
+    JOIN sources source ON source.id = s.source_id WHERE s.meet_id = $1 ORDER BY s.id LIMIT 1`, [unrelatedMeet.id]);
+  assert.ok(unrelatedStandard, "The seed-only meet needs a sourced standard");
+
+  const preservedTime = 98765;
+  const preservedMetadata = { fixture: "keep-existing-meet" };
+  const preservedSourceTitle = "keep-existing-source";
+  await db.query("UPDATE standards SET time_ms = $1 WHERE id = $2", [preservedTime, unrelatedStandard.id]);
+  await db.query("UPDATE meets SET metadata_json = $1::jsonb WHERE id = $2", [JSON.stringify(preservedMetadata), unrelatedMeet.id]);
+  await db.query("UPDATE sources SET title = $1 WHERE id = $2", [preservedSourceTitle, unrelatedStandard.source_id]);
+
   const originalMeets = (await db.query("SELECT * FROM meets ORDER BY id")).rows;
   const originalRows = (await db.query("SELECT * FROM standards ORDER BY id")).rows;
   await db.query("BEGIN");
-  const counts = await applyCurrentStandards(db, current);
+  await applySeedAndCurrentStandards(db, current);
   await db.query("COMMIT");
 
-  for (const meet of current) {
-    const { rows: [registered] } = await db.query("SELECT id FROM meets WHERE level = $1 AND season = $2 AND course = $3 AND name = $4", [meet.level, meet.season, meet.course, meet.name]);
-    assert.ok(registered);
-    const { rows } = await db.query("SELECT gender, age_min, age_max, event_code, time_ms FROM standards WHERE meet_id = $1", [registered.id]);
-    assert.equal(rows.length, meet.rows.length, meet.identity);
-    for (const expected of meet.rows) {
-      const actual = rows.find((row) => row.gender === expected.gender && row.age_min === expected.age_min && row.age_max === expected.age_max && row.event_code === expected.event_code);
-      assert.equal(actual?.time_ms, expected.time_ms, `${meet.identity} ${JSON.stringify(expected)}`);
-    }
-  }
+  const { rows: [preservedStandard] } = await db.query("SELECT time_ms FROM standards WHERE id = $1", [unrelatedStandard.id]);
+  const { rows: [preservedMeet] } = await db.query("SELECT metadata_json FROM meets WHERE id = $1", [unrelatedMeet.id]);
+  const { rows: [preservedSource] } = await db.query("SELECT title FROM sources WHERE id = $1", [unrelatedStandard.source_id]);
+  assert.equal(preservedStandard.time_ms, preservedTime);
+  assert.deepEqual(preservedMeet.metadata_json, preservedMetadata);
+  assert.equal(preservedSource.title, preservedSourceTitle);
+
+  await assertCurrentSnapshots();
   const unchangedMeetIds = originalMeets.filter((original) => !current.some((meet) => meet.level === original.level && meet.season === original.season && meet.course === original.course && meet.name === original.name)).map((meet) => meet.id);
   const { rows: preserved } = await db.query("SELECT * FROM standards WHERE meet_id = ANY($1::uuid[]) ORDER BY id", [unchangedMeetIds]);
   assert.deepEqual(preserved, originalRows.filter((row) => unchangedMeetIds.includes(row.meet_id)));
@@ -39,13 +78,13 @@ try {
   }
   const beforeRepeat = await snapshot();
   await db.query("BEGIN");
-  await applyCurrentStandards(db, current);
+  await applySeedAndCurrentStandards(db, current);
   await db.query("COMMIT");
   assert.deepEqual(await snapshot(), beforeRepeat);
 
   // A mid-import failure must roll back preceding meet/standard updates too.
   await db.query("BEGIN");
-  await assert.rejects(() => applyCurrentStandards(db, [
+  await assert.rejects(() => applySeedAndCurrentStandards(db, [
     { ...current[0], rows: current[0].rows.slice(0, 1) },
     { ...current[1], rows: [{ ...current[1].rows[0], time_ms: null }] },
   ]));
