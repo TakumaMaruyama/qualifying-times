@@ -1,7 +1,7 @@
 # 標準記録検索アプリ (Japanese Swimming Qualification Standards Search App)
 
 ## Overview
-A Next.js web application for searching Japanese swimming competition qualification standards. Users can search by gender, date of birth, competition date, pool type, and year to find the applicable qualification standards.
+A Next.js web application for searching Japanese swimming competition qualification standards. Users search by gender and selected age groups. Results show each meet’s latest registered standards by pool type, without competition dates or venue metadata.
 
 ## Tech Stack
 - **Framework**: Next.js 16.1.6 with App Router (webpack mode)
@@ -50,10 +50,11 @@ postcss-fix-tailwind-urls/  # Local PostCSS plugin for Tailwind v4 compatibility
 
 ## Database Seeding
 - `drizzle/seed.sql` — 開発環境からエクスポートしたシードデータ（sources, meets, standards）
-- `scripts/seed.ts` — シードを実行するスクリプト（既存IDは `DO UPDATE` で更新）
+- `scripts/seed.mjs` — シードを実行するスクリプト（既存IDは `DO UPDATE` で更新）
 - `npm run db:seed` — シードスクリプトの実行コマンド
-- `npm run db:setup` — 初回セットアップ用（`db:migrate` + `db:seed`）
-- デプロイ時のビルドコマンド: `npm run build`（DB変更は含めない）
+- 初回は `npm run db:migrate` でスキーマを作成
+- `data/standards/*-current.json` — 2026-09-09に公式資料から確認した記録。大会名・年度・プール長ごとに同期し、旧年度は保持。
+- デプロイ時のビルドコマンド: `npm run build`（既存シードと公式記録の同期を含む。適用先確認・バックアップが必要）
 
 ## Known Issues / Notes
 - Must use `--webpack` flag in dev (not Turbopack) because lightningcss native binaries can't load in Replit's Turbopack sandbox

@@ -2,6 +2,7 @@ import { readFileSync } from "fs";
 import { fileURLToPath } from "url";
 import { dirname, join } from "path";
 import pg from "pg";
+import { applyCurrentStandards, readCurrentStandards } from "./current-standards.mjs";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -33,18 +34,24 @@ async function main() {
   const pool = new pg.Pool({ connectionString: databaseUrl });
 
   try {
+    const current = readCurrentStandards();
     const seedPath = join(__dirname, "..", "drizzle", "seed.sql");
     const rawSql = readFileSync(seedPath, "utf-8");
     const sql = toUpsertSql(rawSql);
 
     console.log("Applying seed.sql (upsert mode)...");
-    await pool.query("BEGIN");
+    const client = await pool.connect();
     try {
-      await pool.query(sql);
-      await pool.query("COMMIT");
+      await client.query("BEGIN");
+      await client.query(sql);
+      const updated = await applyCurrentStandards(client, current);
+      await client.query("COMMIT");
+      console.log(`Current official standards: ${updated.meets} meets / ${updated.standards} rows.`);
     } catch (err) {
-      await pool.query("ROLLBACK");
+      await client.query("ROLLBACK");
       throw err;
+    } finally {
+      client.release();
     }
     console.log("Seed complete.");
   } catch (err) {

@@ -1,9 +1,16 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
+import { useRouter } from "next/navigation";
 
 import { SearchForm } from "@/components/search-form";
 import { JSF_QUALIFICATION_URL } from "@/lib/qualification";
+import { buildResultQuery } from "@/lib/result-conditions";
+import {
+  readLastSearchInput,
+  SEARCH_LAST_INPUT_STORAGE_KEY,
+  type StoredSearchInput,
+} from "@/lib/search-history";
 
 type SearchMode = "standard" | "qualification";
 
@@ -12,8 +19,51 @@ const MODE_LABELS: Record<SearchMode, string> = {
   qualification: "資格級",
 };
 
+const subscribe = () => () => {};
+let cachedStoredInput: StoredSearchInput | null = null;
+let cachedStoredInputRaw: string | null | undefined;
+
+function getStoredInputSnapshot(): StoredSearchInput | null {
+  let raw: string | null;
+  try {
+    raw = window.localStorage.getItem(SEARCH_LAST_INPUT_STORAGE_KEY);
+  } catch {
+    raw = null;
+  }
+  if (raw === cachedStoredInputRaw) return cachedStoredInput;
+  cachedStoredInputRaw = raw;
+  cachedStoredInput = readLastSearchInput();
+  return cachedStoredInput;
+}
+
+function getLocationSearch(): string {
+  return window.location.search;
+}
+
+function resultHref(input: StoredSearchInput): string {
+  return `/result?${buildResultQuery(input)}`;
+}
+
+function hasSearchConditions(query: string): boolean {
+  const params = new URLSearchParams(query);
+  return ["gender", "course", "targetAges", "compareAges"].some((key) => params.has(key));
+}
+
 export function HomeSearchMode() {
+  const router = useRouter();
   const [mode, setMode] = useState<SearchMode>("standard");
+  const query = useSyncExternalStore(subscribe, getLocationSearch, () => "");
+  const storedInput = useSyncExternalStore(subscribe, getStoredInputSnapshot, () => null);
+
+  useEffect(() => {
+    if (hasSearchConditions(query)) {
+      router.replace(`/result${query}`);
+      return;
+    }
+    if (storedInput) router.replace(resultHref(storedInput));
+  }, [query, router, storedInput]);
+
+  if (hasSearchConditions(query) || storedInput) return null;
 
   return (
     <section className="space-y-4">
