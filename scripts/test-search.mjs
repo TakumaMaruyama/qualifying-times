@@ -42,7 +42,7 @@ try {
     const [code] = await once(seed, "exit");
     assert.equal(code, 0, "Preview seed must succeed");
     if (production) {
-      // Exercise the actual deployment build (including a second seed run).
+      // Exercise the actual deployment build after seeding the disposable DB.
       const build = spawn("npm", ["run", "build"], { env, stdio: "inherit" });
       const [buildCode] = await once(build, "exit");
       assert.equal(buildCode, 0, "Production build must succeed");

@@ -13,7 +13,7 @@ Next.js (App Router) + TypeScript + Tailwind + Drizzle + PostgreSQL で作成し
 - 次年度の数値表を確認できない大会は、確認できた直近の公式記録を使用しています。公式資料の自動取得・自動更新は行いません。
 - `npm run db:seed` は不足している既存シードだけを追加し（既存IDは変更しない）、この公式記録だけを単一トランザクションで同期します。
 - 同じ大会名・レベル・年度・プール長の記録は公式表全体で置き換え、削除された種目・年齢区分を残しません。別年度と無関係な大会は保持します。開催情報の入力は不要です。
-- 既存の `npm run build` はseedも実行します。適用先DBを確認し、既存DBの更新前にはバックアップを取得してください。旧年度は保持されますが、同じ年度内の訂正前の値へ戻すにはバックアップの復元が必要です。
+- `npm run build` はDBを更新しません。標準記録の同期は公開とは別に実行します。適用先DBを確認し、既存DBの更新前にはバックアップを取得してください。旧年度は保持されますが、同じ年度内の訂正前の値へ戻すにはバックアップの復元が必要です。
 
 ## 検証
 
@@ -27,7 +27,7 @@ npm run test:ui
 
 データ同期・検索のテストは、実環境の `DATABASE_URL` を使わず、使い捨てのローカルPostgreSQL互換DB（PGlite）を使用します。検索テストはローカルの5100 / 55439番ポートを使います。
 公式データ入りのローカル画面は `node scripts/test-search.mjs --preview` で確認できます。終了時にデータは破棄されます。
-`node scripts/test-search.mjs --preview --production` は同じ使い捨てDBで、本番ビルド（seedを含む）と起動を確認できます。
+`node scripts/test-search.mjs --preview --production` は使い捨てDBにseedを適用した後、本番ビルドと起動を確認できます。
 
 ## 検索画面
 
@@ -180,5 +180,5 @@ npm run dev
 ## Replit Deploy
 
 1. Replit Secrets に `DATABASE_URL` と `ADMIN_PASSWORD` を設定
-2. 初回は `npm run db:migrate` を実行してスキーマを作成（seedはbuild時に実行）
+2. 初回は `npm run db:migrate` を実行してスキーマを作成。適用先とバックアップを確認して `npm run db:seed` を別途実行（buildではDBを更新しない）
 3. Deploy 設定の Build command は `npm run build`、Start command は `npm run start` にしてデプロイ
