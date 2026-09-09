@@ -80,7 +80,7 @@ export function SearchForm() {
     <form onSubmit={onSubmit} className="space-y-4 rounded-lg border border-zinc-200 bg-white p-6">
       <SearchControls gender={values.gender} targetAges={values.targetAges} onChange={updateControls} />
       {ageError ? <p role="alert" className="text-sm text-red-700">{ageError}</p> : null}
-      <button type="submit" className="min-h-11 w-full rounded bg-zinc-900 px-4 py-2 font-medium text-white outline-offset-2 hover:bg-zinc-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-zinc-900">
+      <button type="submit" className="min-h-11 w-full rounded bg-blue-600 px-4 py-2 font-medium text-white outline-offset-2 hover:bg-blue-700 active:bg-blue-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-600">
         検索する
       </button>
       <SearchExtras
