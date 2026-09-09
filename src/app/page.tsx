@@ -7,9 +7,6 @@ export default function HomePage() {
   return (
     <main className="mx-auto min-h-screen max-w-2xl p-6">
       <h1 className="mb-2 text-2xl font-bold">標準記録検索アプリ</h1>
-      <p className="mb-6 text-sm text-zinc-700">
-        標準記録検索と資格級確認を切り替えて利用できます。
-      </p>
       <div className="space-y-4">
         <CheerButton />
         <HomeSearchMode />
