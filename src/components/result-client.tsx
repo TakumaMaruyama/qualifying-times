@@ -1,348 +1,133 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { useSearchParams } from "next/navigation";
 
-import {
-  formatCompareAgeLabel,
-  normalizeCompareAges,
-} from "@/lib/compare-age";
-import {
-  COURSE_ANY_DESCRIPTION,
-  formatCourseStandardRecordLabel,
-} from "@/lib/course-label";
-import {
-  COURSES,
-  GENDERS,
-  STANDARD_LEVELS,
-  type Course,
-  type StandardLevel,
-} from "@/lib/domain";
-import { formatEventCodeLabelLines } from "@/lib/event";
+import { DisplayHelp } from "@/components/display-help";
+import { SearchControls } from "@/components/search-controls";
+import { SearchExtras } from "@/components/search-extras";
+import { StandardsResults, resolveAvailablePreferences, type StandardsSearchResponse } from "@/components/standards-results";
+import { formatCourseStandardRecordLabel } from "@/lib/course-label";
+import { JSF_QUALIFICATION_URL } from "@/lib/qualification";
+import { buildResultQuery, parseResultConditions, type ResultConditions } from "@/lib/result-conditions";
+import { readLastSearchInput, readSearchHistory, upsertSearchHistory, writeLastSearchInput, type SearchHistoryItem, type StoredSearchInput } from "@/lib/search-history";
+import { readViewPreferences, writeViewPreferences } from "@/lib/standard-view-preferences";
 
-type SearchMeetResult = {
-  meet_id: string;
-  meet_name: string;
-  meet_season: number;
-  meet_course: Course;
-  meet_date: string | null;
-  meet_date_end: string | null;
-  meet_metadata: Record<string, unknown> | null;
-  items: Array<{ event_code: string; age: number; time: string }>;
-};
+const subscribe = () => () => {};
+const getClientSnapshot = () => true;
+const getServerSnapshot = () => false;
 
-type SearchApiResponse = {
-  targetAges: number[];
-  season: number | null;
-  course: Course;
-  gender: "M" | "F";
-  results: Record<StandardLevel, SearchMeetResult[]>;
-};
-
-const LEVEL_LABELS: Record<StandardLevel, string> = {
-  national: "全国レベル",
-  kyushu: "九州レベル",
-  kagoshima: "県レベル（鹿児島）",
-};
-
-const GENDER_LABELS: Record<"M" | "F", string> = {
-  M: "男子",
-  F: "女子",
-};
-
-function isCourse(value: string | null): value is Course {
-  return value !== null && COURSES.includes(value as Course);
-}
-
-function isGender(value: string | null): value is "M" | "F" {
-  return value !== null && GENDERS.includes(value as "M" | "F");
-}
-
-function parseTargetAges(raw: string): number[] | null {
-  const values = raw
-    .split(",")
-    .map((value) => value.trim())
-    .filter((value) => value !== "");
-
-  const parsed: number[] = [];
-  for (const value of values) {
-    const age = Number.parseInt(value, 10);
-    if (!Number.isInteger(age) || age < 9 || age > 17) {
-      return null;
-    }
-    parsed.push(age);
-  }
-
-  return normalizeCompareAges(parsed);
-}
-
-function formatMeetDateRange(startDate: string | null, endDate: string | null): string {
-  if (!startDate) {
-    return "未設定";
-  }
-  if (!endDate || endDate === startDate) {
-    return startDate;
-  }
-  return `${startDate} 〜 ${endDate}`;
+function replaceQuery(query: string) {
+  // Next.js synchronizes native history changes with useSearchParams, without navigation or scrolling.
+  window.history.replaceState(null, "", `/result?${query}`);
 }
 
 export function ResultClient() {
   const params = useSearchParams();
+  const hydrated = useSyncExternalStore(subscribe, getClientSnapshot, getServerSnapshot);
+  if (!hydrated) return <p role="status">読み込み中...</p>;
+  return <ResultSearch query={params.toString()} onQueryChange={replaceQuery} />;
+}
 
-  const requestPayload = useMemo(() => {
-    const gender = params.get("gender");
-    const courseParam = params.get("course");
-    const targetAgesRaw = params.get("targetAges") ?? params.get("compareAges");
+type SearchResponse = { key: string; attempt: number } & (
+  | { data: StandardsSearchResponse; error?: never }
+  | { data?: never; error: string }
+);
 
-    if (!isGender(gender)) {
-      return { error: "gender が不正です。" };
-    }
+export function ResultSearch({ query, onQueryChange }: { query: string; onQueryChange: (query: string) => void }) {
+  const [savedInput] = useState(readLastSearchInput);
+  const { conditions, error: conditionError } = useMemo(() => parseResultConditions(query, savedInput), [query, savedInput]);
+  const [playerName, setPlayerName] = useState(() => savedInput && buildResultQuery(savedInput) === buildResultQuery(conditions) ? savedInput.playerName : "");
+  const nameRef = useRef(playerName);
+  const [history, setHistory] = useState(readSearchHistory);
+  const [preferences, setPreferences] = useState(readViewPreferences);
+  const [response, setResponse] = useState<SearchResponse | null>(null);
+  const [attempt, setAttempt] = useState(0);
+  const requestKey = JSON.stringify({ ...conditions, season: null });
+  const valid = !conditionError && conditions.targetAges.length > 0;
+  const currentResponse = valid && response?.key === requestKey && response.attempt === attempt ? response : null;
 
-    const normalizedCourse =
-      courseParam === null || courseParam.trim() === ""
-        ? "ANY"
-        : isCourse(courseParam)
-          ? courseParam
-          : null;
-
-    if (normalizedCourse === null) {
-      return { error: "course が不正です。" };
-    }
-
-    if (!targetAgesRaw || targetAgesRaw.trim() === "") {
-      return { error: "targetAges が不正です。" };
-    }
-
-    const targetAges = parseTargetAges(targetAgesRaw);
-    if (targetAges === null || targetAges.length === 0) {
-      return { error: "targetAges が不正です。" };
-    }
-
-    return {
-      payload: {
-        gender,
-        course: normalizedCourse,
-        season: null,
-        targetAges,
-      },
-    };
-  }, [params]);
-
-  const [data, setData] = useState<SearchApiResponse | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  useEffect(() => { writeViewPreferences(preferences); }, [preferences]);
 
   useEffect(() => {
-    const payload = requestPayload.payload;
-    if (!payload) {
-      setLoading(false);
-      setError(requestPayload.error ?? "入力値が不正です。");
-      return;
-    }
+    if (!query && savedInput) onQueryChange(buildResultQuery(savedInput));
+  }, [query, savedInput, onQueryChange]);
 
-    let cancelled = false;
+  useEffect(() => {
+    if (!valid) return;
+    const controller = new AbortController();
+    const payload = JSON.parse(requestKey) as ResultConditions & { season: null };
+    const storedInput = (): StoredSearchInput => ({ gender: payload.gender, course: payload.course, targetAges: payload.targetAges, season: "", playerName: nameRef.current });
+    writeLastSearchInput(storedInput());
 
-    const fetchData = async () => {
-      setLoading(true);
-      setError(null);
-
+    const fetchRecords = async () => {
       try {
-        const response = await fetch("/api/search", {
+        const result = await fetch("/api/search", {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(payload),
+          headers: { "Content-Type": "application/json" },
+          body: requestKey,
+          signal: controller.signal,
         });
-
-        const responseBody = (await response.json()) as SearchApiResponse | { error?: string };
-
-        if (!response.ok) {
-          throw new Error(
-            "error" in responseBody && responseBody.error
-              ? responseBody.error
-              : "検索に失敗しました。",
-          );
-        }
-
-        if (!cancelled) {
-          setData(responseBody as SearchApiResponse);
-        }
-      } catch (err) {
-        if (!cancelled) {
-          setError(err instanceof Error ? err.message : "検索に失敗しました。");
-          setData(null);
-        }
-      } finally {
-        if (!cancelled) {
-          setLoading(false);
-        }
+        if (!result.ok) throw new Error("Search failed");
+        const data = await result.json() as StandardsSearchResponse;
+        // Some transports can finish after abort; never accept a superseded result.
+        if (controller.signal.aborted) return;
+        setResponse({ key: requestKey, attempt, data });
+        setPreferences((previous) => resolveAvailablePreferences(previous, data));
+        writeLastSearchInput(storedInput());
+        setHistory(upsertSearchHistory(storedInput()));
+      } catch {
+        if (controller.signal.aborted) return;
+        setResponse({ key: requestKey, attempt, error: "標準記録を取得できませんでした。通信状況を確認して、もう一度お試しください。" });
       }
     };
+    void fetchRecords();
+    return () => controller.abort();
+  }, [requestKey, valid, attempt]);
 
-    fetchData();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [requestPayload]);
+  const changeConditions = (next: ResultConditions) => onQueryChange(buildResultQuery(next));
+  const changeName = (name: string) => {
+    nameRef.current = name;
+    setPlayerName(name);
+  };
+  const saveName = () => {
+    if (!valid) return;
+    const input = { ...conditions, playerName: nameRef.current, season: "" };
+    writeLastSearchInput(input);
+    if (currentResponse?.data) setHistory(upsertSearchHistory(input));
+  };
+  const selectHistory = (item: SearchHistoryItem) => {
+    changeName(item.playerName);
+    writeLastSearchInput({ ...item, season: "" });
+    setHistory(upsertSearchHistory({ ...item, season: "" }));
+    changeConditions({ gender: item.gender, course: item.course, targetAges: item.targetAges });
+  };
 
   return (
-    <>
-      <div className="mb-4">
-        <h1 className="text-2xl font-bold">検索結果</h1>
-        <Link href="/" className="text-sm text-blue-700 underline">
-          条件を変更する
-        </Link>
-      </div>
-
-      {loading ? <p>検索中...</p> : null}
-      {error ? <p className="rounded bg-red-50 p-3 text-red-700">{error}</p> : null}
-
-      {data ? (
-        <>
-          <div className="mb-6 grid gap-2 rounded border border-zinc-200 bg-white p-4 text-sm sm:grid-cols-2">
-            <p>
-              <span className="font-medium">年度:</span> {data.season === null ? "すべて" : data.season}
-            </p>
-            <p>
-              <span className="font-medium">性別:</span> {GENDER_LABELS[data.gender]}
-            </p>
-            <p>
-              <span className="font-medium">プール長:</span>{" "}
-              {data.course === "ANY"
-                ? "すべて（短水路・長水路・共通）"
-                : formatCourseStandardRecordLabel(data.course)}
-            </p>
-            {data.course === "ANY" ? (
-              <p className="text-xs text-zinc-600 sm:col-span-2">{COURSE_ANY_DESCRIPTION}</p>
-            ) : null}
-            <p className="sm:col-span-2">
-              <span className="font-medium">検索年齢:</span>{" "}
-              {data.targetAges.map((value) => formatCompareAgeLabel(value)).join(", ")}
-            </p>
-          </div>
-
-          <div className="space-y-6">
-            {STANDARD_LEVELS.map((level) => {
-              const meets = data.results[level];
-              const levelSectionKey = [
-                level,
-                data.gender,
-                data.course,
-                data.season === null ? "all" : String(data.season),
-                data.targetAges.join(","),
-              ].join("|");
-              return (
-                <details
-                  key={levelSectionKey}
-                  className="rounded border border-zinc-200 bg-white p-4"
-                >
-                  <summary className="cursor-pointer list-none">
-                    <div className="flex items-center justify-between gap-2">
-                      <h2 className="text-lg font-semibold">{LEVEL_LABELS[level]}</h2>
-                      <span className="rounded-full border border-zinc-300 bg-zinc-100 px-2 py-0.5 text-xs text-zinc-700">
-                        {meets.length}件
-                      </span>
-                    </div>
-                  </summary>
-
-                  <div className="mt-3">
-                    {meets.length === 0 ? (
-                      <p className="text-sm text-zinc-600">該当なし</p>
-                    ) : (
-                      <div className="space-y-5">
-                        {meets.map((meet) => (
-                          <details key={meet.meet_id} className="rounded border border-zinc-200">
-                            <summary className="cursor-pointer list-none p-3">
-                              <div className="flex flex-wrap items-center justify-between gap-2">
-                                <h3 className="text-base font-semibold">{meet.meet_name}</h3>
-                                <span className="rounded-full border border-zinc-300 bg-zinc-100 px-2 py-0.5 text-xs text-zinc-700">
-                                  {formatCourseStandardRecordLabel(meet.meet_course)}
-                                </span>
-                              </div>
-                              <p className="mt-1 text-xs text-zinc-600">
-                                標準記録年度: {meet.meet_season} / 大会日付: {formatMeetDateRange(meet.meet_date, meet.meet_date_end)} / 種目数:{" "}
-                                {new Set(meet.items.map((item) => item.event_code)).size}
-                              </p>
-                            </summary>
-                            <div className="border-t border-zinc-200 p-3">
-                              {meet.meet_metadata ? (
-                                <p className="mb-3 mt-1 break-all text-xs text-zinc-600">
-                                  metadata: {JSON.stringify(meet.meet_metadata)}
-                                </p>
-                              ) : null}
-                              <div className="overflow-x-auto">
-                                <table className="w-max min-w-full border-separate border-spacing-0 text-sm">
-                                  <thead>
-                                    <tr className="text-left">
-                                      <th className="sticky top-0 left-0 z-30 border-b border-r border-zinc-200 bg-white py-2 pr-3 whitespace-nowrap">
-                                        種目
-                                      </th>
-                                      {data.targetAges.map((targetAge) => (
-                                        <th
-                                          key={`${meet.meet_id}-age-${targetAge}`}
-                                          className="sticky top-0 z-20 border-b border-zinc-200 bg-white py-2 pr-3 whitespace-nowrap"
-                                        >
-                                          {formatCompareAgeLabel(targetAge)}
-                                        </th>
-                                      ))}
-                                    </tr>
-                                  </thead>
-                                  <tbody>
-                                    {Array.from(new Set(meet.items.map((item) => item.event_code))).map(
-                                      (eventCode) => {
-                                        const byAge = new Map<number, string>();
-                                        for (const item of meet.items) {
-                                          if (item.event_code === eventCode) {
-                                            byAge.set(item.age, item.time);
-                                          }
-                                        }
-                                        const eventLabelLines = formatEventCodeLabelLines(eventCode);
-
-                                        return (
-                                          <tr key={`${meet.meet_id}-${eventCode}`}>
-                                            <td
-                                              className={`sticky left-0 z-10 border-r border-b border-zinc-200 bg-white py-2 pr-3 ${
-                                                eventLabelLines.length > 1
-                                                  ? "leading-tight"
-                                                  : "whitespace-nowrap"
-                                              }`}
-                                            >
-                                              {eventLabelLines.map((line, index) => (
-                                                <span key={`${eventCode}-${index}`} className="block">
-                                                  {line}
-                                                </span>
-                                              ))}
-                                            </td>
-                                            {data.targetAges.map((targetAge) => (
-                                              <td
-                                                key={`${meet.meet_id}-${eventCode}-${targetAge}`}
-                                                className="border-b border-zinc-100 py-2 pr-3 whitespace-nowrap"
-                                              >
-                                                {byAge.get(targetAge) ?? "-"}
-                                              </td>
-                                            ))}
-                                          </tr>
-                                        );
-                                      },
-                                    )}
-                                  </tbody>
-                                </table>
-                              </div>
-                            </div>
-                          </details>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                </details>
-              );
-            })}
-          </div>
-        </>
-      ) : null}
-    </>
+    <div className="min-w-0 space-y-5">
+      <header className="flex flex-wrap items-center justify-between gap-2">
+        <h1 className="text-2xl font-bold">標準記録</h1>
+        <a href={JSF_QUALIFICATION_URL} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center text-sm text-zinc-600 underline underline-offset-4">資格級（公式）</a>
+      </header>
+      <section aria-label="検索条件" className="rounded-lg border border-zinc-200 bg-white p-4">
+        <SearchControls gender={conditions.gender} targetAges={conditions.targetAges} onChange={(next) => changeConditions({ ...conditions, ...next })} />
+        {conditions.course !== "ANY" ? <p className="mt-3 text-sm text-zinc-600">
+          {formatCourseStandardRecordLabel(conditions.course)}で絞り込み中
+          <button type="button" className="ml-3 min-h-11 text-zinc-900 underline" onClick={() => changeConditions({ ...conditions, course: "ANY" })}>すべて表示</button>
+        </p> : null}
+      </section>
+      {conditionError ? <p role="alert" className="rounded-lg bg-amber-50 p-4 text-sm text-amber-900">{conditionError}</p> : null}
+      {!conditionError && !valid ? <p role="status" className="rounded-lg border border-zinc-200 bg-white p-5 text-sm text-zinc-600">年齢を1つ以上選ぶと、標準記録を表示します。</p> : null}
+      {valid && !currentResponse ? <p role="status" className="py-4 text-sm text-zinc-600">標準記録を読み込み中...</p> : null}
+      {currentResponse?.error ? <div role="alert" className="space-y-3 rounded-lg bg-red-50 p-4 text-sm text-red-800">
+        <p>{currentResponse.error}</p>
+        <button type="button" onClick={() => setAttempt((value) => value + 1)} className="min-h-11 rounded border border-red-300 bg-white px-4 py-2 font-medium focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-700">再試行する</button>
+      </div> : null}
+      {currentResponse?.data ? <StandardsResults key={requestKey} data={currentResponse.data} preferences={preferences} onPreferencesChange={setPreferences} /> : null}
+      <SearchExtras playerName={playerName} onPlayerNameChange={changeName} onPlayerNameCommit={saveName} history={history} onHistorySelect={selectHistory} />
+      <DisplayHelp />
+      <footer className="text-right"><Link href="/admin/import" className="inline-flex min-h-11 items-center text-xs text-zinc-500 underline underline-offset-4">管理者ログイン</Link></footer>
+    </div>
   );
 }

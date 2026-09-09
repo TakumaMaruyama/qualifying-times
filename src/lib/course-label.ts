@@ -7,7 +7,7 @@ export const COURSE_LABELS: Record<Course, string> = {
 };
 
 export const COURSE_ANY_DESCRIPTION =
-  "「短水路・長水路共通」は、短水路・長水路のどちらかの記録で標準記録を突破していれば可。";
+  "「短水路・長水路共通」は、水路別に区分されていない標準記録です。";
 
 export function formatCourseStandardRecordLabel(course: Course): string {
   return `${COURSE_LABELS[course]}の標準記録`;

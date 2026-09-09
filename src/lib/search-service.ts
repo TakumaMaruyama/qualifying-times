@@ -1,4 +1,5 @@
-import { and, asc, eq, gte, inArray, lte, sql } from "drizzle-orm";
+import { and, asc, eq, gte, inArray, lte, or, sql } from "drizzle-orm";
+import { alias } from "drizzle-orm/pg-core";
 import { z } from "zod";
 
 import {
@@ -6,9 +7,6 @@ import {
 } from "@/lib/compare-age";
 import { db } from "@/db/client";
 import { meets, standards } from "@/db/schema";
-import {
-  getCurrentDatePartsInTimeZone,
-} from "@/lib/date";
 import {
   courseSchema,
   genderSchema,
@@ -19,7 +17,6 @@ import {
 } from "@/lib/domain";
 import { BadRequestError } from "@/lib/errors";
 import { compareEventCode } from "@/lib/event";
-import { resolveSeason } from "@/lib/season";
 import { formatTimeMs } from "@/lib/time";
 
 export const searchRequestSchema = z.object({
@@ -43,9 +40,6 @@ export type SearchMeetResult = {
   meet_name: string;
   meet_season: number;
   meet_course: Course;
-  meet_date: string | null;
-  meet_date_end: string | null;
-  meet_metadata: Record<string, unknown> | null;
   items: SearchRow[];
 };
 
@@ -56,19 +50,6 @@ export type SearchResponse = {
   gender: Gender;
   results: Record<StandardLevel, SearchMeetResult[]>;
 };
-
-function compareNullableIsoDateAsc(a: string | null, b: string | null): number {
-  if (a === b) {
-    return 0;
-  }
-  if (a === null) {
-    return 1;
-  }
-  if (b === null) {
-    return -1;
-  }
-  return a.localeCompare(b);
-}
 
 export function validateSearchRequest(input: unknown): SearchRequest {
   const parsed = searchRequestSchema.safeParse(input);
@@ -87,63 +68,27 @@ function resolveSearchCourses(course: Course): Course[] {
   return [course, "ANY"];
 }
 
-async function resolveSearchSeason(params: {
-  fallbackDate: ReturnType<typeof getCurrentDatePartsInTimeZone>;
-  courses: Course[];
-  gender: Gender;
-  minAge: number;
-  maxAge: number;
-}): Promise<number> {
-  const latestRows = await db
-    .select({
-      latestSeason: sql<number | null>`max(${meets.season})`,
-    })
-    .from(standards)
-    .innerJoin(meets, eq(standards.meetId, meets.id))
-    .where(
-      and(
-        inArray(meets.course, params.courses),
-        eq(standards.gender, params.gender),
-        lte(standards.ageMin, params.maxAge),
-        gte(standards.ageMax, params.minAge),
-        inArray(meets.level, [...STANDARD_LEVELS]),
-      ),
-    );
-
-  const latestSeasonRaw = latestRows[0]?.latestSeason ?? null;
-  const latestSeason =
-    latestSeasonRaw === null ? null : Number.parseInt(String(latestSeasonRaw), 10);
-
-  if (latestSeason !== null && Number.isFinite(latestSeason)) {
-    return latestSeason;
-  }
-
-  return resolveSeason(null, params.fallbackDate);
-}
-
 export async function searchStandards(input: SearchRequest): Promise<SearchResponse> {
-  const currentDate = getCurrentDatePartsInTimeZone("Asia/Tokyo");
   const targetAges = normalizeCompareAges([...input.targetAges, ...input.compareAges]);
   if (targetAges.length === 0) {
     throw new BadRequestError("targetAges must include at least one value.");
   }
   const courses = resolveSearchCourses(input.course);
-  const searchAllSeasons = input.course === "ANY" && input.season === null;
-
-  const season = input.season
-    ? input.season
-    : searchAllSeasons
-      ? null
-      : await resolveSearchSeason({
-          fallbackDate: currentDate,
-          courses,
-          gender: input.gender,
-          minAge: Math.min(...targetAges),
-          maxAge: Math.max(...targetAges),
-        });
-
-  const minAge = Math.min(...targetAges);
-  const maxAge = Math.max(...targetAges);
+  const season = input.season;
+  // Resolve the latest registered edition separately for every meet and course.
+  // Choose the edition before filtering ages/gender so removed categories cannot
+  // silently fall back to an older standard.
+  const editions = alias(meets, "editions");
+  const latestEdition = db
+    .select({ season: sql<number>`max(${editions.season})` })
+    .from(editions)
+    .where(
+      and(
+        eq(editions.level, meets.level),
+        eq(editions.name, meets.name),
+        eq(editions.course, meets.course),
+      ),
+    );
 
   const found = await db
     .select({
@@ -152,9 +97,6 @@ export async function searchStandards(input: SearchRequest): Promise<SearchRespo
       meetName: meets.name,
       meetSeason: meets.season,
       meetCourse: meets.course,
-      meetDate: meets.meetDate,
-      meetDateEnd: meets.meetEndDate,
-      meetMetadata: meets.metadataJson,
       ageMin: standards.ageMin,
       ageMax: standards.ageMax,
       eventCode: standards.eventCode,
@@ -164,11 +106,10 @@ export async function searchStandards(input: SearchRequest): Promise<SearchRespo
     .innerJoin(meets, eq(standards.meetId, meets.id))
     .where(
       and(
-        ...(season === null ? [] : [eq(meets.season, season)]),
+        eq(meets.season, season ?? latestEdition),
         inArray(meets.course, courses),
         eq(standards.gender, input.gender),
-        lte(standards.ageMin, maxAge),
-        gte(standards.ageMax, minAge),
+        or(...targetAges.map((age) => and(lte(standards.ageMin, age), gte(standards.ageMax, age)))),
         inArray(meets.level, [...STANDARD_LEVELS]),
       ),
     )
@@ -193,9 +134,6 @@ export async function searchStandards(input: SearchRequest): Promise<SearchRespo
         meet_name: row.meetName,
         meet_season: row.meetSeason,
         meet_course: row.meetCourse,
-        meet_date: row.meetDate,
-        meet_date_end: row.meetDateEnd,
-        meet_metadata: (row.meetMetadata ?? null) as Record<string, unknown> | null,
         items: [],
       };
       grouped.set(key, meetGroup);
@@ -226,17 +164,6 @@ export async function searchStandards(input: SearchRequest): Promise<SearchRespo
 
   for (const level of STANDARD_LEVELS) {
     results[level].sort((a, b) => {
-      const meetDateComparison = compareNullableIsoDateAsc(a.meet_date, b.meet_date);
-      if (meetDateComparison !== 0) {
-        return meetDateComparison;
-      }
-      const meetDateEndComparison = compareNullableIsoDateAsc(a.meet_date_end, b.meet_date_end);
-      if (meetDateEndComparison !== 0) {
-        return meetDateEndComparison;
-      }
-      if (a.meet_season !== b.meet_season) {
-        return a.meet_season - b.meet_season;
-      }
       const nameComparison = a.meet_name.localeCompare(b.meet_name);
       if (nameComparison !== 0) {
         return nameComparison;
